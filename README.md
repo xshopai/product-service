@@ -1,111 +1,88 @@
-# Product Service
+# 📦 Product Service
 
-The `product-service` is responsible for product catalog management, inventory tracking, and product lifecycle operations for the AIOutlet platform. It is a core microservice in the product management architecture.
+Product catalog management microservice for xShop.ai - handles product CRUD operations, search, categories, inventory tracking, and lifecycle events.
 
-**Architecture Pattern**: Pure Publisher (Dapr Pub/Sub)
-
-- Publishes events via Dapr SDK to RabbitMQ backend
-- No direct RabbitMQ or consumer dependencies
-- Consumes events via webhooks (future implementation)
-
----
-
-## Features
-
-- Product CRUD operations (Create, Read, Update, Delete)
-- Product search and filtering
-- Category management
-- Inventory tracking
-- Product pricing management
-- Event publishing for product lifecycle changes (created, updated, deleted)
-- Structured logging and error handling
-- Distributed tracing support
-
----
-
-## Architecture
-
-This service is built with **Python FastAPI**, using **Motor** (async MongoDB driver) for database operations and **Dapr SDK** for service mesh capabilities.
-
-The microservice follows a **Dapr-only architecture**:
-- No fallback to direct HTTP or environment variables
-- All secrets managed via Dapr Secret Store
-- Service invocation through Dapr sidecar
-- Distributed tracing via Dapr configuration
-
----
-
-## Project Structure
-
-```
-app/
-├── api/              # API route handlers
-├── clients/          # Dapr clients (secrets, service invocation)
-├── core/             # Core configuration, logging, errors
-├── db/               # Database connection and configuration
-├── middleware/       # Custom middleware (trace context)
-├── models/           # Pydantic models and MongoDB schemas
-├── services/         # Business logic layer
-└── validators/       # Input validation logic
-main.py              # FastAPI application entry point
-```
-
----
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- MongoDB instance (local or Docker)
-- **Dapr v1.16.2+** (required - no fallback mode)
-- Docker (for infrastructure: MongoDB, RabbitMQ, Redis, OTEL Collector, Jaeger)
+- **Python** 3.11+ ([Download](https://www.python.org/downloads/))
+- **MongoDB** 8+ ([Download](https://www.mongodb.com/try/download/community))
+- **Dapr CLI** 1.16.2+ ([Install Guide](https://docs.dapr.io/getting-started/install-dapr-cli/))
+- **Docker** (for infrastructure: MongoDB, RabbitMQ, Redis)
 
-### Quick Start
+### Setup
 
-1. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+**1. Start Infrastructure**
+```bash
+cd ../../scripts/docker-compose
+docker-compose -f docker-compose.infrastructure.yml up -d
+docker-compose -f docker-compose.services.yml up product-mongodb -d
+```
 
-2. **Start infrastructure** (MongoDB, RabbitMQ, Redis, OTEL Collector, Jaeger):
-   ```bash
-   cd ../../scripts/docker-compose
-   docker-compose -f docker-compose.infrastructure.yml up -d
-   docker-compose -f docker-compose.services.yml up product-mongodb -d
-   ```
+**2. Clone & Install**
+```bash
+git clone https://github.com/xshopai/product-service.git
+cd product-service
+pip install -r requirements.txt
+```
 
-3. **Configure secrets** - Create `.dapr/secrets.json`:
-   ```json
-   {
-     "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017/product_service_db",
-     "JWT_SECRET": "your-super-secret-jwt-key-change-in-production"
-   }
-   ```
+**3. Configure Secrets**
+```bash
+# Create .dapr/secrets.json
+{
+  "MONGODB_CONNECTION_STRING": "mongodb://localhost:27017/product_service_db",
+  "JWT_SECRET": "your-super-secret-jwt-key-change-in-production"
+}
+```
 
-4. **Run the service with Dapr**:
-   ```bash
-   # Using run script (recommended)
-   ./run.sh      # Linux/Mac
-   .\run.ps1     # Windows
-   ```
+**4. Initialize Dapr**
+```bash
+# First time only
+dapr init
+```
 
-5. **Access the service**:
-   - Service API: `http://localhost:1001/api`
-   - API Documentation: `http://localhost:1001/docs`
-   - Dapr sidecar: `http://localhost:3501`
-   - Health check: `http://localhost:3501/v1.0/invoke/product-service/method/health`
-   - Jaeger tracing UI: `http://localhost:16686`
+**5. Run Service**
+```bash
+# Start with Dapr (recommended)
+./run.sh       # Linux/Mac
+.\run.ps1      # Windows
+```
 
-### Environment Variables
+**6. Verify**
+```bash
+# Check health
+curl http://localhost:1001/health
 
-Configuration is handled by `app/core/config.py` with sensible defaults for local development.
+# Via Dapr
+curl http://localhost:3501/v1.0/invoke/product-service/method/health
 
-Secrets are managed via **Dapr Secret Store** (`.dapr/components/secrets.yaml`).
+# API docs
+Open http://localhost:1001/docs
+```
 
----
+### Common Commands
 
-## API Endpoints
+```bash
+# Run tests
+pytest
+
+# Run with coverage
+pytest --cov=app tests/
+
+# Debug mode
+python -m uvicorn main:app --reload --port 8003
+```
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [📖 Developer Guide](docs/DEVELOPER_GUIDE.md) | Local setup, debugging, daily workflows |
+| [📘 Technical Reference](docs/TECHNICAL.md) | Architecture, security, monitoring |
+| [🤝 Contributing](docs/CONTRIBUTING.md) | Contribution guidelines and workflow |
+
+**API Documentation**: FastAPI auto-generates interactive docs at `/docs` (Swagger UI) and `/redoc` (ReDoc).
 
 ### Products
 - `GET /api/products` — List all products (with pagination)
