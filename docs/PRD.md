@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD)
 
-## Product Service - AIOutlet Platform
+## Product Service - xShop.ai Platform
 
 **Version:** 1.0  
 **Last Updated:** November 3, 2025  
 **Status:** Active Development  
-**Owner:** AIOutlet Platform Team
+**Owner:** xShop.ai Platform Team
 
 ---
 
@@ -217,7 +217,7 @@
 
 ### 1.1 Product Vision
 
-The Product Service is a core microservice within the AIOutlet e-commerce platform, responsible for managing the complete product catalog, including product information, taxonomy, search, and product discovery features. It serves as the central source of truth for all product data and provides both REST APIs and event-driven integration patterns.
+The Product Service is a core microservice within the xShop.ai e-commerce platform, responsible for managing the complete product catalog, including product information, taxonomy, search, and product discovery features. It serves as the central source of truth for all product data and provides both REST APIs and event-driven integration patterns.
 
 ### 1.2 Business Objectives
 
@@ -1778,7 +1778,7 @@ X-Correlation-ID: req-abc-123 (optional)
   ],
   "tags": ["cotton", "casual", "comfortable", "basic"],
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Black | AIOutlet",
+    "metaTitle": "Premium Cotton T-Shirt - Black | xShop.ai",
     "metaDescription": "Shop our premium cotton t-shirt in black. Comfortable, durable, and stylish.",
     "slug": "premium-cotton-tshirt-black"
   }
@@ -1884,7 +1884,7 @@ X-Correlation-ID: req-xyz-456 (optional)
   "variationType": "parent",
   "childCount": 6,
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Black | AIOutlet",
+    "metaTitle": "Premium Cotton T-Shirt - Black | xShop.ai",
     "metaDescription": "Shop our premium cotton t-shirt in black.",
     "slug": "premium-cotton-tshirt-black"
   },
@@ -2439,12 +2439,12 @@ X-Correlation-ID: req-mno-678
 
 ```json
 {
-  "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | AIOutlet",
+  "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xShop.ai",
   "metaDescription": "Shop our premium cotton t-shirt. Free shipping on orders over $50. 100% satisfaction guaranteed.",
   "metaKeywords": ["cotton t-shirt", "mens clothing", "casual wear", "comfortable tshirt"],
   "slug": "premium-cotton-tshirt-black-mens",
   "canonicalUrl": "https://www.aioutlet.com/products/premium-cotton-tshirt-black-mens",
-  "ogTitle": "Premium Cotton T-Shirt - AIOutlet",
+  "ogTitle": "Premium Cotton T-Shirt - xShop.ai",
   "ogDescription": "Comfortable 100% cotton t-shirt with modern fit",
   "ogImage": "https://cdn.aioutlet.com/products/ts-001-og.jpg",
   "structuredData": {
@@ -2473,7 +2473,7 @@ X-Correlation-ID: req-mno-678
   "productId": "507f1f77bcf86cd799439011",
   "sku": "TS-BLK-001",
   "seo": {
-    "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | AIOutlet",
+    "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xShop.ai",
     "slug": "premium-cotton-tshirt-black-mens",
     "updatedAt": "2025-11-04T15:30:00Z"
   },
@@ -4641,7 +4641,7 @@ Product Service stores product data in MongoDB with the following structure. Thi
 
   // === SEO METADATA ===
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | AIOutlet",
+    "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xShop.ai",
     "metaDescription": "Shop our premium cotton t-shirt...",
     "metaKeywords": ["cotton t-shirt", "men's clothing", "casual wear"],
     "slug": "premium-cotton-tshirt-black",
@@ -5442,7 +5442,7 @@ available: true
 
 ```json
 {
-  "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | AIOutlet",
+  "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xShop.ai",
   "metaDescription": "Shop our premium 100% cotton t-shirt. Soft, breathable fabric in multiple colors. Free shipping on orders over $50.",
   "metaKeywords": "cotton t-shirt, men's t-shirt, comfortable clothing",
   "urlSlug": "premium-cotton-t-shirt-black",

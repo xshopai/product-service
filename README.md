@@ -128,4 +128,4 @@ MIT License
 
 ## Contact
 
-For questions or support, reach out to the AIOutlet dev team.
+For questions or support, reach out to the xShop.ai dev team.

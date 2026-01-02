@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Product Service is a high-performance Python FastAPI microservice responsible for product catalog management, search functionality, and product data operations within the AIOutlet platform. It handles product information, pricing data, and catalog management across the e-commerce ecosystem.
+The Product Service is a high-performance Python FastAPI microservice responsible for product catalog management, search functionality, and product data operations within the xShop.ai platform. It handles product information, pricing data, and catalog management across the e-commerce ecosystem.
 
 ## Supported Versions
 

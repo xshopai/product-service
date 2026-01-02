@@ -24,7 +24,7 @@
 
 ## Overview
 
-Product Service is the **source of truth** for product catalog data in the AIOutlet platform. It follows a **layered architecture** pattern with clear separation of concerns and implements **event-driven integration** using Dapr Pub/Sub for asynchronous communication.
+Product Service is the **source of truth** for product catalog data in the xShop.ai platform. It follows a **layered architecture** pattern with clear separation of concerns and implements **event-driven integration** using Dapr Pub/Sub for asynchronous communication.
 
 ### Service Responsibilities
 

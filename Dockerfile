@@ -90,9 +90,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 CMD sh -c "uvicorn main:app --host 0.0.0.0 --port 1001 --workers ${WORKERS:-4}"
 
 # Labels for better image management and security scanning
-LABEL maintainer="AIOutlet Team"
+LABEL maintainer="xShop.ai Team"
 LABEL service="product-service"
 LABEL version="1.0.0"
 LABEL org.opencontainers.image.source="https://github.com/aioutlet/aioutlet"
-LABEL org.opencontainers.image.description="Product Service for AIOutlet platform"
-LABEL org.opencontainers.image.vendor="AIOutlet"
+LABEL org.opencontainers.image.description="Product Service for xShop.ai platform"
+LABEL org.opencontainers.image.vendor="xShop.ai"
