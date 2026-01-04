@@ -52,7 +52,7 @@ async def decode_jwt(token: str) -> dict:
             jwt_config['secret'],
             algorithms=[jwt_config['algorithm']],
             issuer=jwt_config['issuer'],  # Verify issuer (auth-service)
-            audience=jwt_config['audience']  # Verify audience (aioutlet-platform)
+            audience=jwt_config['audience']  # Verify audience (xshopai-platform)
         )
         return payload
     except jwt.ExpiredSignatureError:

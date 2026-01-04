@@ -15,7 +15,7 @@ services:
     volumes:
       - product_mongodb_data:/data/db
     networks:
-      - aioutlet-network
+      - xshopai-network
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -41,7 +41,7 @@ services:
       product-mongodb:
         condition: service_healthy
     networks:
-      - aioutlet-network
+      - xshopai-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:1002/health"]
       interval: 30s
@@ -54,5 +54,5 @@ volumes:
     name: product_mongodb_data
 
 networks:
-  aioutlet-network:
+  xshopai-network:
     external: true

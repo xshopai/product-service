@@ -242,11 +242,14 @@ async def check_dapr_sidecar_health() -> Dict[str, Any]:
     dapr_http_port = config.dapr_http_port
     health_url = f"http://localhost:{dapr_http_port}/v1.0/healthz"
     
+    # During startup, Dapr might not be ready yet - use shorter timeout
+    timeout_seconds = 2.0
+    
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 health_url,
-                timeout=aiohttp.ClientTimeout(total=3.0),
+                timeout=aiohttp.ClientTimeout(total=timeout_seconds),
                 headers={'Accept': 'application/json'}
             ) as response:
                 response_time_ms = (time.time() - check_start) * 1000
@@ -311,9 +314,9 @@ async def check_dapr_sidecar_health() -> Dict[str, Any]:
                     
     except asyncio.TimeoutError:
         response_time_ms = (time.time() - check_start) * 1000
-        error_msg = "Dapr sidecar connection timeout"
+        error_msg = "Dapr sidecar connection timeout (may still be starting)"
         
-        logger.warning(
+        logger.debug(
             error_msg,
             metadata={
                 "response_time_ms": response_time_ms,
@@ -324,7 +327,28 @@ async def check_dapr_sidecar_health() -> Dict[str, Any]:
         
         return {
             "name": "dapr_sidecar",
-            "status": "unhealthy",
+            "status": "degraded",  # Not unhealthy - might still be starting
+            "error": error_msg,
+            "response_time_ms": round(response_time_ms, 2),
+            "timestamp": datetime.now().isoformat(),
+        }
+    except (aiohttp.ClientConnectorError, ConnectionRefusedError) as e:
+        # Connection refused is common during startup
+        response_time_ms = (time.time() - check_start) * 1000
+        error_msg = "Dapr sidecar not yet available (starting up)"
+        
+        logger.debug(
+            error_msg,
+            metadata={
+                "response_time_ms": response_time_ms,
+                "dapr_port": dapr_http_port,
+                "event": "health_check_dapr_starting"
+            }
+        )
+        
+        return {
+            "name": "dapr_sidecar",
+            "status": "degraded",  # Degraded rather than unhealthy during startup
             "error": error_msg,
             "response_time_ms": round(response_time_ms, 2),
             "timestamp": datetime.now().isoformat(),
@@ -333,7 +357,7 @@ async def check_dapr_sidecar_health() -> Dict[str, Any]:
         response_time_ms = (time.time() - check_start) * 1000
         error_msg = f"Dapr sidecar check failed: {str(e)}"
         
-        logger.error(
+        logger.warning(
             error_msg,
             metadata={
                 "response_time_ms": response_time_ms,

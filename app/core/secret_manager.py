@@ -150,7 +150,7 @@ def get_jwt_config() -> Dict[str, Any]:
     jwt_algorithm = os.environ.get('JWT_ALGORITHM', 'HS256')
     jwt_expiration = int(os.environ.get('JWT_EXPIRATION', '3600'))
     jwt_issuer = os.environ.get('JWT_ISSUER', 'auth-service')
-    jwt_audience = os.environ.get('JWT_AUDIENCE', 'aioutlet-platform')
+    jwt_audience = os.environ.get('JWT_AUDIENCE', 'xshopai-platform')
     
     return {
         'secret': jwt_secret,

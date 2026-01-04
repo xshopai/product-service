@@ -57,7 +57,7 @@
 #### Event Publishing (Implementing PRD Section 2.3.2)
 
 - **Solution**: Dapr Pub/Sub
-- **Component Name**: `aioutlet-pubsub`
+- **Component Name**: `xshopai-pubsub`
 - **Backend**: RabbitMQ (configurable via Dapr component)
 - **Why Dapr**:
   - Framework-agnostic (can switch to Kafka/Azure Service Bus without code changes)
@@ -88,7 +88,7 @@ class DaprPublisher:
     def __init__(self):
         self.dapr_http_port = os.getenv('DAPR_HTTP_PORT', '3500')
         self.dapr_grpc_port = os.getenv('DAPR_GRPC_PORT', '50001')
-        self.pubsub_name = 'aioutlet-pubsub'
+        self.pubsub_name = 'xshopai-pubsub'
         self.service_name = os.getenv('NAME', 'product-service')
 
     async def publish(
@@ -194,37 +194,37 @@ async def subscribe():
     """
     subscriptions = [
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'review.created',
             'route': '/events/review-created'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'review.updated',
             'route': '/events/review-updated'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'review.deleted',
             'route': '/events/review-deleted'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'inventory.stock.updated',
             'route': '/events/inventory-updated'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'analytics.product.sales.updated',
             'route': '/events/sales-updated'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'analytics.product.views.updated',
             'route': '/events/views-updated'
         },
         {
-            'pubsubname': 'aioutlet-pubsub',
+            'pubsubname': 'xshopai-pubsub',
             'topic': 'product.question.created',
             'route': '/events/question-created'
         }
@@ -867,7 +867,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: aioutlet-pubsub
+  name: xshopai-pubsub
 spec:
   type: pubsub.rabbitmq
   version: v1
@@ -875,7 +875,7 @@ spec:
     - name: host
       value: 'amqp://admin:admin123@rabbitmq:5672'
     - name: exchangeName
-      value: 'aioutlet.events'
+      value: 'xshopai.events'
     - name: exchangeKind
       value: 'topic'
     - name: durable

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Product Service is a high-performance Python FastAPI microservice responsible for product catalog management, search functionality, and product data operations within the xShop.ai platform. It handles product information, pricing data, and catalog management across the e-commerce ecosystem.
+The Product Service is a high-performance Python FastAPI microservice responsible for product catalog management, search functionality, and product data operations within the xshop.ai platform. It handles product information, pricing data, and catalog management across the e-commerce ecosystem.
 
 ## Supported Versions
 
@@ -75,7 +75,7 @@ We provide security updates for the following versions:
 
        # API Security
        cors_origins: List[str] = Field(
-           ["https://app.aioutlet.com"],
+           ["https://app.xshopai.com"],
            env="CORS_ORIGINS"
        )
        max_request_size: int = Field(16777216, env="MAX_REQUEST_SIZE")  # 16MB
@@ -369,7 +369,7 @@ Product service vulnerabilities can affect catalog integrity:
 
 1. **Do NOT** open a public issue
 2. **Do NOT** attempt to modify product data
-3. **Email** our security team at: <security@aioutlet.com>
+3. **Email** our security team at: <security@xshopai.com>
 
 ### Critical Security Areas
 
@@ -431,7 +431,7 @@ JWT_ALGORITHM=HS256
 JWT_EXPIRE_MINUTES=60
 
 # API Security
-CORS_ORIGINS=https://app.aioutlet.com,https://admin.aioutlet.com
+CORS_ORIGINS=https://app.xshopai.com,https://admin.xshopai.com
 MAX_REQUEST_SIZE=16777216
 ENABLE_SECURITY_HEADERS=true
 
@@ -544,9 +544,9 @@ The Product Service adheres to:
 
 For security-related questions or concerns:
 
-- **Email**: <security@aioutlet.com>
+- **Email**: <security@xshopai.com>
 - **Emergency**: Include "URGENT PRODUCT SECURITY" in subject line
-- **Catalog Issues**: Copy <catalog@aioutlet.com>
+- **Catalog Issues**: Copy <catalog@xshopai.com>
 
 ---
 

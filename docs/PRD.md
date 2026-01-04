@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD)
 
-## Product Service - xShop.ai Platform
+## Product Service - xshop.ai Platform
 
 **Version:** 1.0  
 **Last Updated:** November 3, 2025  
 **Status:** Active Development  
-**Owner:** xShop.ai Platform Team
+**Owner:** xshop.ai Platform Team
 
 ---
 
@@ -217,7 +217,7 @@
 
 ### 1.1 Product Vision
 
-The Product Service is a core microservice within the xShop.ai e-commerce platform, responsible for managing the complete product catalog, including product information, taxonomy, search, and product discovery features. It serves as the central source of truth for all product data and provides both REST APIs and event-driven integration patterns.
+The Product Service is a core microservice within the xshop.ai e-commerce platform, responsible for managing the complete product catalog, including product information, taxonomy, search, and product discovery features. It serves as the central source of truth for all product data and provides both REST APIs and event-driven integration patterns.
 
 ### 1.2 Business Objectives
 
@@ -348,7 +348,7 @@ Product Service publishes the following events to notify downstream services of 
     },
     "images": [
       {
-        "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+        "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
         "alt": "Front view of black t-shirt",
         "isPrimary": true,
         "order": 1
@@ -392,7 +392,7 @@ Product Service publishes the following events to notify downstream services of 
       "description": "Comfortable 100% cotton t-shirt",
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-old.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-old.jpg",
           "alt": "Old image",
           "isPrimary": true,
           "order": 1
@@ -404,13 +404,13 @@ Product Service publishes the following events to notify downstream services of 
       "description": "Comfortable 100% cotton t-shirt with modern fit",
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
           "alt": "Front view of black t-shirt",
           "isPrimary": true,
           "order": 1
         },
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-back.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-back.jpg",
           "alt": "Back view of black t-shirt",
           "isPrimary": false,
           "order": 2
@@ -640,7 +640,7 @@ Product Service publishes the following events to notify downstream services of 
       "skippedRows": 0,
       "duration": "14 minutes 32 seconds"
     },
-    "errorReportUrl": "https://cdn.aioutlet.com/reports/import-job-20251104-001-errors.csv",
+    "errorReportUrl": "https://cdn.xshopai.com/reports/import-job-20251104-001-errors.csv",
     "completedAt": "2025-11-04T16:15:00Z",
     "completedBy": "admin-user-123"
   },
@@ -1324,7 +1324,7 @@ Product Service stores product data in MongoDB with the following complete schem
   // === MEDIA ===
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
       "alt": "Front view of black t-shirt",
       "isPrimary": true,
       "order": 1
@@ -1468,8 +1468,8 @@ This section documents all environment variables required to run the Product Ser
 | `RABBITMQ_PORT`         | RabbitMQ port             | `5672`            | Yes      | `5672`            |
 | `RABBITMQ_USER`         | RabbitMQ username         | `admin`           | Yes      | -                 |
 | `RABBITMQ_PASSWORD`     | RabbitMQ password         | `secretpassword`  | Yes      | -                 |
-| `RABBITMQ_VHOST`        | RabbitMQ virtual host     | `/aioutlet`       | No       | `/`               |
-| `RABBITMQ_EXCHANGE`     | Exchange name for pub/sub | `aioutlet.events` | No       | `aioutlet.events` |
+| `RABBITMQ_VHOST`        | RabbitMQ virtual host     | `/xshopai`       | No       | `/`               |
+| `RABBITMQ_EXCHANGE`     | Exchange name for pub/sub | `xshopai.events` | No       | `xshopai.events` |
 | `RABBITMQ_QUEUE_PREFIX` | Prefix for queue names    | `product-service` | No       | `product-service` |
 
 #### 2.7.3 Dapr Configuration
@@ -1488,8 +1488,8 @@ This section documents all environment variables required to run the Product Ser
 | ---------------- | -------------------------------------------- | --------------------------------- | -------- | ------- |
 | `JWT_PUBLIC_KEY` | Public key for JWT verification (PEM format) | `-----BEGIN PUBLIC KEY-----\n...` | Yes      | -       |
 | `JWT_ALGORITHM`  | JWT signature algorithm                      | `RS256`                           | No       | `RS256` |
-| `JWT_ISSUER`     | Expected JWT issuer                          | `aioutlet-auth-service`           | No       | -       |
-| `JWT_AUDIENCE`   | Expected JWT audience                        | `aioutlet-api`                    | No       | -       |
+| `JWT_ISSUER`     | Expected JWT issuer                          | `xshopai-auth-service`           | No       | -       |
+| `JWT_AUDIENCE`   | Expected JWT audience                        | `xshopai-api`                    | No       | -       |
 
 #### 2.7.5 Service Configuration
 
@@ -1503,7 +1503,7 @@ This section documents all environment variables required to run the Product Ser
 | `LOG_LEVEL`      | Logging level                          | `info`                                                | No       | `info`            |
 | `ENABLE_SWAGGER` | Enable Swagger UI documentation        | `true`                                                | No       | `false`           |
 | `ENABLE_CORS`    | Enable CORS                            | `true`                                                | No       | `true`            |
-| `CORS_ORIGINS`   | Allowed CORS origins (comma-separated) | `https://www.aioutlet.com,https://admin.aioutlet.com` | No       | `*`               |
+| `CORS_ORIGINS`   | Allowed CORS origins (comma-separated) | `https://www.xshopai.com,https://admin.xshopai.com` | No       | `*`               |
 
 #### 2.7.6 Performance & Caching
 
@@ -1525,7 +1525,7 @@ This section documents all environment variables required to run the Product Ser
 | `MAX_IMPORT_FILE_SIZE_MB` | Maximum Excel import file size  | `50`                       | No       | `50`           |
 | `MAX_IMAGE_ZIP_SIZE_MB`   | Maximum image ZIP file size     | `100`                      | No       | `100`          |
 | `UPLOAD_TEMP_DIR`         | Temporary upload directory      | `/tmp/uploads`             | No       | `/tmp/uploads` |
-| `CDN_BASE_URL`            | CDN base URL for product images | `https://cdn.aioutlet.com` | No       | -              |
+| `CDN_BASE_URL`            | CDN base URL for product images | `https://cdn.xshopai.com` | No       | -              |
 
 #### 2.7.8 Monitoring & Observability
 
@@ -1630,8 +1630,8 @@ DAPR_APP_PORT=8003
 # Authentication
 JWT_PUBLIC_KEY=${JWT_PUBLIC_KEY_SECRET}
 JWT_ALGORITHM=RS256
-JWT_ISSUER=aioutlet-auth-service
-JWT_AUDIENCE=aioutlet-api
+JWT_ISSUER=xshopai-auth-service
+JWT_AUDIENCE=xshopai-api
 
 # Service
 NAME=product-service
@@ -1641,7 +1641,7 @@ ENVIRONMENT=production
 LOG_LEVEL=info
 ENABLE_SWAGGER=false
 ENABLE_CORS=true
-CORS_ORIGINS=https://www.aioutlet.com,https://admin.aioutlet.com
+CORS_ORIGINS=https://www.xshopai.com,https://admin.xshopai.com
 
 # Performance
 CACHE_ENABLED=true
@@ -1653,7 +1653,7 @@ RATE_LIMIT_WINDOW_MS=60000
 # File Upload
 MAX_IMPORT_FILE_SIZE_MB=50
 MAX_IMAGE_ZIP_SIZE_MB=100
-CDN_BASE_URL=https://cdn.aioutlet.com
+CDN_BASE_URL=https://cdn.xshopai.com
 
 # Monitoring
 METRICS_ENABLED=true
@@ -1673,7 +1673,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: product-service-config
-  namespace: aioutlet
+  namespace: xshopai
 data:
   NAME: 'product-service'
   VERSION: '1.0.0'
@@ -1690,7 +1690,7 @@ data:
   # RabbitMQ
   RABBITMQ_HOST: 'rabbitmq-service'
   RABBITMQ_PORT: '5672'
-  RABBITMQ_VHOST: '/aioutlet'
+  RABBITMQ_VHOST: '/xshopai'
 
   # Dapr
   DAPR_HTTP_PORT: '3500'
@@ -1764,13 +1764,13 @@ X-Correlation-ID: req-abc-123 (optional)
   },
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
       "alt": "Front view of black t-shirt",
       "isPrimary": true,
       "order": 1
     },
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-back.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-back.jpg",
       "alt": "Back view of black t-shirt",
       "isPrimary": false,
       "order": 2
@@ -1778,7 +1778,7 @@ X-Correlation-ID: req-abc-123 (optional)
   ],
   "tags": ["cotton", "casual", "comfortable", "basic"],
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Black | xShop.ai",
+    "metaTitle": "Premium Cotton T-Shirt - Black | xshop.ai",
     "metaDescription": "Shop our premium cotton t-shirt in black. Comfortable, durable, and stylish.",
     "slug": "premium-cotton-tshirt-black"
   }
@@ -1849,7 +1849,7 @@ X-Correlation-ID: req-xyz-456 (optional)
   },
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
       "alt": "Front view of black t-shirt",
       "isPrimary": true,
       "order": 1
@@ -1884,7 +1884,7 @@ X-Correlation-ID: req-xyz-456 (optional)
   "variationType": "parent",
   "childCount": 6,
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Black | xShop.ai",
+    "metaTitle": "Premium Cotton T-Shirt - Black | xshop.ai",
     "metaDescription": "Shop our premium cotton t-shirt in black.",
     "slug": "premium-cotton-tshirt-black"
   },
@@ -1925,7 +1925,7 @@ X-Correlation-ID: req-def-789
   "description": "Comfortable 100% cotton t-shirt with modern fit - NOW ON SALE!",
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-front-new.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-front-new.jpg",
       "alt": "Updated front view of black t-shirt",
       "isPrimary": true,
       "order": 1
@@ -2036,7 +2036,7 @@ X-Correlation-ID: req-ghi-012
       "sku": "TS-BLK-001",
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
           "alt": "Front view",
           "isPrimary": true
         }
@@ -2053,7 +2053,7 @@ X-Correlation-ID: req-ghi-012
       "sku": "HD-GRY-002",
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/hd-002-front.jpg",
+          "url": "https://cdn.xshopai.com/products/hd-002-front.jpg",
           "alt": "Front view",
           "isPrimary": true
         }
@@ -2209,7 +2209,7 @@ importMode: partial (or "all-or-nothing")
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-blk-s.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-blk-s.jpg",
           "alt": "Black t-shirt small",
           "isPrimary": true
         }
@@ -2224,7 +2224,7 @@ importMode: partial (or "all-or-nothing")
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-blk-m.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-blk-m.jpg",
           "alt": "Black t-shirt medium",
           "isPrimary": true
         }
@@ -2239,7 +2239,7 @@ importMode: partial (or "all-or-nothing")
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-blk-l.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-blk-l.jpg",
           "alt": "Black t-shirt large",
           "isPrimary": true
         }
@@ -2439,14 +2439,14 @@ X-Correlation-ID: req-mno-678
 
 ```json
 {
-  "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xShop.ai",
+  "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xshop.ai",
   "metaDescription": "Shop our premium cotton t-shirt. Free shipping on orders over $50. 100% satisfaction guaranteed.",
   "metaKeywords": ["cotton t-shirt", "mens clothing", "casual wear", "comfortable tshirt"],
   "slug": "premium-cotton-tshirt-black-mens",
-  "canonicalUrl": "https://www.aioutlet.com/products/premium-cotton-tshirt-black-mens",
-  "ogTitle": "Premium Cotton T-Shirt - xShop.ai",
+  "canonicalUrl": "https://www.xshopai.com/products/premium-cotton-tshirt-black-mens",
+  "ogTitle": "Premium Cotton T-Shirt - xshop.ai",
   "ogDescription": "Comfortable 100% cotton t-shirt with modern fit",
-  "ogImage": "https://cdn.aioutlet.com/products/ts-001-og.jpg",
+  "ogImage": "https://cdn.xshopai.com/products/ts-001-og.jpg",
   "structuredData": {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -2473,7 +2473,7 @@ X-Correlation-ID: req-mno-678
   "productId": "507f1f77bcf86cd799439011",
   "sku": "TS-BLK-001",
   "seo": {
-    "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xShop.ai",
+    "metaTitle": "Buy Premium Cotton T-Shirt Online - Best Price | xshop.ai",
     "slug": "premium-cotton-tshirt-black-mens",
     "updatedAt": "2025-11-04T15:30:00Z"
   },
@@ -2639,7 +2639,7 @@ mappingMode: sku-based (or "product-id-based")
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-blk-s.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-blk-s.jpg",
           "isPrimary": true
         }
       ],
@@ -2659,7 +2659,7 @@ mappingMode: sku-based (or "product-id-based")
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-blk-m.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-blk-m.jpg",
           "isPrimary": true
         }
       ],
@@ -2701,7 +2701,7 @@ mappingMode: sku-based (or "product-id-based")
   },
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-blk-xl.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-blk-xl.jpg",
       "alt": "Black t-shirt extra large",
       "isPrimary": true
     }
@@ -2790,7 +2790,7 @@ GET /api/products/search?query=cotton&category=Clothing&minPrice=20&maxPrice=50&
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
           "alt": "Front view",
           "isPrimary": true
         }
@@ -2832,7 +2832,7 @@ GET /api/products/search?query=cotton&category=Clothing&minPrice=20&maxPrice=50&
       },
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/hd-002-front.jpg",
+          "url": "https://cdn.xshopai.com/products/hd-002-front.jpg",
           "alt": "Front view",
           "isPrimary": true
         }
@@ -3012,14 +3012,14 @@ GET /api/products/autocomplete?query=cott&limit=10
       "text": "cotton t-shirt",
       "type": "product",
       "productId": "507f1f77bcf86cd799439011",
-      "image": "https://cdn.aioutlet.com/products/ts-001-thumb.jpg",
+      "image": "https://cdn.xshopai.com/products/ts-001-thumb.jpg",
       "price": 29.99
     },
     {
       "text": "cotton hoodie",
       "type": "product",
       "productId": "507f1f77bcf86cd799439015",
-      "image": "https://cdn.aioutlet.com/products/hd-002-thumb.jpg",
+      "image": "https://cdn.xshopai.com/products/hd-002-thumb.jpg",
       "price": 49.99
     },
     {
@@ -3069,7 +3069,7 @@ GET /api/products/trending?category=Clothing&limit=10&timeWindow=7d
       "sku": "TS-BLK-001",
       "images": [
         {
-          "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+          "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
           "isPrimary": true
         }
       ],
@@ -4515,7 +4515,7 @@ System SHOULD implement the following alerting thresholds:
         "value": "TS-BLK-001"
       }
     ],
-    "documentation": "https://docs.aioutlet.com/api/errors#validation-error"
+    "documentation": "https://docs.xshopai.com/api/errors#validation-error"
   }
 }
 ```
@@ -4597,13 +4597,13 @@ Product Service stores product data in MongoDB with the following structure. Thi
   // === MEDIA ===
   "images": [
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-front.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-front.jpg",
       "alt": "Front view of black t-shirt",
       "isPrimary": true,
       "order": 1
     },
     {
-      "url": "https://cdn.aioutlet.com/products/ts-001-back.jpg",
+      "url": "https://cdn.xshopai.com/products/ts-001-back.jpg",
       "alt": "Back view of black t-shirt",
       "isPrimary": false,
       "order": 2
@@ -4641,11 +4641,11 @@ Product Service stores product data in MongoDB with the following structure. Thi
 
   // === SEO METADATA ===
   "seo": {
-    "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xShop.ai",
+    "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xshop.ai",
     "metaDescription": "Shop our premium cotton t-shirt...",
     "metaKeywords": ["cotton t-shirt", "men's clothing", "casual wear"],
     "slug": "premium-cotton-tshirt-black",
-    "canonicalUrl": "https://aioutlet.com/products/premium-cotton-tshirt-black"
+    "canonicalUrl": "https://xshopai.com/products/premium-cotton-tshirt-black"
   },
 
   // === RESTRICTIONS & COMPLIANCE ===
@@ -5442,11 +5442,11 @@ available: true
 
 ```json
 {
-  "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xShop.ai",
+  "metaTitle": "Premium Cotton T-Shirt - Comfortable & Stylish | xshop.ai",
   "metaDescription": "Shop our premium 100% cotton t-shirt. Soft, breathable fabric in multiple colors. Free shipping on orders over $50.",
   "metaKeywords": "cotton t-shirt, men's t-shirt, comfortable clothing",
   "urlSlug": "premium-cotton-t-shirt-black",
-  "canonicalUrl": "https://aioutlet.com/products/premium-cotton-t-shirt-black",
+  "canonicalUrl": "https://xshopai.com/products/premium-cotton-t-shirt-black",
   "openGraph": {
     "title": "Premium Cotton T-Shirt",
     "description": "Soft 100% cotton t-shirt",
