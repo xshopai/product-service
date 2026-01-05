@@ -1455,7 +1455,7 @@ This section documents all environment variables required to run the Product Ser
 | Variable                | Description                        | Example                     | Required | Default |
 | ----------------------- | ---------------------------------- | --------------------------- | -------- | ------- |
 | `MONGODB_URI`           | MongoDB connection string          | `mongodb://localhost:27017` | Yes      | -       |
-| `MONGODB_DATABASE`      | Database name                      | `aioutlet_products`         | Yes      | -       |
+| `MONGODB_DATABASE`      | Database name                      | `xshopai_products`         | Yes      | -       |
 | `MONGODB_MAX_POOL_SIZE` | Maximum connection pool size       | `100`                       | No       | `50`    |
 | `MONGODB_MIN_POOL_SIZE` | Minimum connection pool size       | `10`                        | No       | `5`     |
 | `MONGODB_TIMEOUT_MS`    | Connection timeout in milliseconds | `5000`                      | No       | `10000` |
@@ -1566,7 +1566,7 @@ This section documents all environment variables required to run the Product Ser
 ```bash
 # Database
 MONGODB_URI=mongodb://localhost:27017
-MONGODB_DATABASE=aioutlet_products_dev
+MONGODB_DATABASE=xshopai_products_dev
 
 # Message Broker
 RABBITMQ_HOST=localhost
@@ -1611,7 +1611,7 @@ LOG_FORMAT=pretty
 ```bash
 # Database
 MONGODB_URI=mongodb://prod-mongo-cluster:27017
-MONGODB_DATABASE=aioutlet_products
+MONGODB_DATABASE=xshopai_products
 MONGODB_MAX_POOL_SIZE=100
 
 # Message Broker
@@ -1684,7 +1684,7 @@ data:
 
   # MongoDB
   MONGODB_URI: 'mongodb://mongo-service:27017'
-  MONGODB_DATABASE: 'aioutlet_products'
+  MONGODB_DATABASE: 'xshopai_products'
   MONGODB_MAX_POOL_SIZE: '100'
 
   # RabbitMQ

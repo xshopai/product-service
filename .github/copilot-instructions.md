@@ -643,7 +643,7 @@ DAPR_APP_PORT=8003           # Port where product service listens
 
 # Database (Section 2.7.1)
 MONGODB_URI=mongodb://localhost:27017
-MONGODB_DATABASE=aioutlet_products
+MONGODB_DATABASE=xshopai_products
 
 # Message Broker (Section 2.7.2)
 RABBITMQ_HOST=localhost
