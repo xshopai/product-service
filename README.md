@@ -1,6 +1,6 @@
 # 📦 Product Service
 
-Product catalog management microservice for xshop.ai - handles product CRUD operations, search, categories, inventory tracking, and lifecycle events.
+Product catalog management microservice for xshopai - handles product CRUD operations, search, categories, inventory tracking, and lifecycle events.
 
 ## 🚀 Quick Start
 
@@ -128,4 +128,4 @@ MIT License
 
 ## Contact
 
-For questions or support, reach out to the xshop.ai dev team.
+For questions or support, reach out to the xshopai dev team.
