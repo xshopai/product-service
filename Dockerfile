@@ -73,11 +73,15 @@ COPY --from=dependencies /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 # Copy application code (unnecessary files excluded via .dockerignore)
 COPY --chown=productuser:appgroup . .
 
-# Create logs directory
-RUN mkdir -p logs && chown -R productuser:appgroup logs
+# Create logs directory and ensure tmp is writable for uvicorn workers
+RUN mkdir -p logs && chown -R productuser:appgroup logs && \
+    mkdir -p /tmp/uvicorn && chown -R productuser:appgroup /tmp/uvicorn
 
 # Switch to non-root user
 USER productuser
+
+# Set writable temp directory for uvicorn
+ENV TMPDIR=/tmp/uvicorn
 
 # Expose port
 EXPOSE 1001
@@ -86,8 +90,8 @@ EXPOSE 1001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:1001/readiness')" || exit 1
 
-# Start production server (workers configurable via WORKERS env var, default: 4)
-CMD sh -c "uvicorn main:app --host 0.0.0.0 --port 1001 --workers ${WORKERS:-4}"
+# Start production server with single worker (multi-worker needs gunicorn for proper process management)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "1001"]
 
 # Labels for better image management and security scanning
 LABEL maintainer="xshopai Team"
