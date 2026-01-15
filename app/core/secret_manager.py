@@ -95,6 +95,9 @@ def get_database_config() -> Dict[str, Any]:
     Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
     Both local secrets.json and Azure Key Vault use the same naming convention.
     
+    Database name is retrieved from environment variable first (for Azure Container Apps)
+    then falls back to secret store (for local development).
+    
     Returns:
         Dictionary with database connection parameters
     """
@@ -105,12 +108,15 @@ def get_database_config() -> Dict[str, Any]:
     username = username if username and username.strip() else None
     password = password if password and password.strip() else None
     
+    # Database name: env var first (Azure), then secret store (local dev)
+    database = os.environ.get('MONGODB_DATABASE') or secret_manager.get_secret('mongo-initdb-database') or 'productdb'
+    
     config = {
         'host': secret_manager.get_secret('mongodb-host') or 'localhost',
         'port': int(secret_manager.get_secret('mongodb-port') or '27019'),
         'username': username,
         'password': password,
-        'database': secret_manager.get_secret('mongo-initdb-database') or 'productdb',
+        'database': database,
     }
     
     logger.info(
