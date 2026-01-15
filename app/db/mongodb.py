@@ -36,16 +36,34 @@ async def connect_to_mongo():
         port = db_config.get('port', '27019')
         database = db_config.get('database', 'product_service_db')
         
+        # Check if this is Azure Cosmos DB (port 10255 or host contains cosmos)
+        is_cosmos_db = port == '10255' or 'cosmos.azure.com' in host
+        ssl_param = '&ssl=true&retrywrites=false' if is_cosmos_db else ''
+        
+        if is_cosmos_db:
+            logger.info("Detected Azure Cosmos DB, using TLS connection", metadata={"event": "cosmos_db_detected"})
+        
         if username and password:
-            mongodb_url = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource=admin"
+            mongodb_url = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource=admin{ssl_param}"
             # Log sanitized URL for debugging
-            sanitized_url = f"mongodb://{username}:***@{host}:{port}/{database}?authSource=admin"
+            sanitized_url = f"mongodb://{username}:***@{host}:{port}/{database}?authSource=admin{ssl_param}"
             logger.info(f"MongoDB URL: {sanitized_url}", metadata={"event": "mongodb_url_debug"})
         else:
-            mongodb_url = f"mongodb://{host}:{port}/{database}"
+            ssl_query = f"?{ssl_param[1:]}" if ssl_param else ""
+            mongodb_url = f"mongodb://{host}:{port}/{database}{ssl_query}"
             logger.info(f"MongoDB URL: {mongodb_url}", metadata={"event": "mongodb_url_debug"})
         
-        db.client = AsyncIOMotorClient(mongodb_url)
+        # Connection options
+        connection_options = {
+            "serverSelectionTimeoutMS": 30000,  # 30 seconds for cloud connections
+            "socketTimeoutMS": 45000,
+        }
+        
+        if is_cosmos_db:
+            connection_options["tls"] = True
+            connection_options["retryWrites"] = False
+        
+        db.client = AsyncIOMotorClient(mongodb_url, **connection_options)
         db.database = db.client[database]
         
         logger.info(
