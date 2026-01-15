@@ -92,22 +92,25 @@ def get_database_config() -> Dict[str, Any]:
     """
     Get database configuration from secrets or environment variables.
     
+    Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
+    Both local secrets.json and Azure Key Vault use the same naming convention.
+    
     Returns:
         Dictionary with database connection parameters
     """
-    username = secret_manager.get_secret('MONGO_INITDB_ROOT_USERNAME')
-    password = secret_manager.get_secret('MONGO_INITDB_ROOT_PASSWORD')
+    username = secret_manager.get_secret('mongo-initdb-root-username')
+    password = secret_manager.get_secret('mongo-initdb-root-password')
     
     # Filter out empty strings - treat them as None
     username = username if username and username.strip() else None
     password = password if password and password.strip() else None
     
     config = {
-        'host': secret_manager.get_secret('MONGODB_HOST') or 'localhost',
-        'port': int(secret_manager.get_secret('MONGODB_PORT') or '27019'),
+        'host': secret_manager.get_secret('mongodb-host') or 'localhost',
+        'port': int(secret_manager.get_secret('mongodb-port') or '27019'),
         'username': username,
         'password': password,
-        'database': secret_manager.get_secret('MONGO_INITDB_DATABASE') or 'productdb',
+        'database': secret_manager.get_secret('mongo-initdb-database') or 'productdb',
     }
     
     logger.info(
@@ -127,13 +130,15 @@ def get_database_config() -> Dict[str, Any]:
 def get_jwt_config() -> Dict[str, Any]:
     """
     Get JWT configuration from secrets or environment variables.
-    Only JWT_SECRET is truly secret - algorithm and expiration are just config.
+    Only jwt-secret is truly secret - algorithm and expiration are just config.
+    
+    Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
     
     Returns:
         Dictionary with JWT configuration parameters
     """
     # Only the secret key is actually secret - get it securely
-    jwt_secret = secret_manager.get_secret('JWT_SECRET')
+    jwt_secret = secret_manager.get_secret('jwt-secret')
     if not jwt_secret:
         # Fallback to environment variable (for local dev)
         jwt_secret = os.environ.get('JWT_SECRET', 'your_jwt_secret_key')
