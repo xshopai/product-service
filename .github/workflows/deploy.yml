@@ -168,7 +168,7 @@ jobs:
       min_replicas: 1
       max_replicas: 5
       ingress_enabled: true
-      ingress_external: false
+      ingress_external: true
       health_probe_path: '/readiness'
       dapr_enabled: true
       dapr_app_port: 1001
@@ -213,7 +213,7 @@ jobs:
       min_replicas: ${{ github.event.inputs.environment == 'prod' && 2 || 1 }}
       max_replicas: ${{ github.event.inputs.environment == 'prod' && 10 || 5 }}
       ingress_enabled: true
-      ingress_external: false
+      ingress_external: true
       health_probe_path: '/readiness'
       dapr_enabled: true
       dapr_app_port: 1001
