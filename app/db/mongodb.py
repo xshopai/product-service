@@ -37,20 +37,32 @@ async def connect_to_mongo():
         database = db_config.get('database', 'product_service_db')
         
         # Check if this is Azure Cosmos DB (port 10255 or host contains cosmos)
-        is_cosmos_db = port == '10255' or 'cosmos.azure.com' in host
-        ssl_param = '&ssl=true&retrywrites=false' if is_cosmos_db else ''
+        # Use str() conversion to handle both string and number port values
+        is_cosmos_db = str(port) == '10255' or 'cosmos.azure.com' in host
+        
+        # Cosmos DB requires ssl=true, replicaSet=globaldb, retryWrites=false, maxIdleTimeMS=120000
+        cosmos_params = 'ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000'
+        
+        logger.info(f"Database config - Host: {host}, Port: {port} (type: {type(port).__name__}), IsCosmosDB: {is_cosmos_db}", 
+                    metadata={"event": "db_config_debug"})
         
         if is_cosmos_db:
-            logger.info("Detected Azure Cosmos DB, using TLS connection", metadata={"event": "cosmos_db_detected"})
+            logger.info("Detected Azure Cosmos DB, using TLS connection with replicaSet=globaldb", 
+                       metadata={"event": "cosmos_db_detected"})
         
         if username and password:
-            mongodb_url = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource=admin{ssl_param}"
-            # Log sanitized URL for debugging
-            sanitized_url = f"mongodb://{username}:***@{host}:{port}/{database}?authSource=admin{ssl_param}"
+            if is_cosmos_db:
+                mongodb_url = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource=admin&{cosmos_params}"
+                sanitized_url = f"mongodb://{username}:***@{host}:{port}/{database}?authSource=admin&{cosmos_params}"
+            else:
+                mongodb_url = f"mongodb://{username}:{password}@{host}:{port}/{database}?authSource=admin"
+                sanitized_url = f"mongodb://{username}:***@{host}:{port}/{database}?authSource=admin"
             logger.info(f"MongoDB URL: {sanitized_url}", metadata={"event": "mongodb_url_debug"})
         else:
-            ssl_query = f"?{ssl_param[1:]}" if ssl_param else ""
-            mongodb_url = f"mongodb://{host}:{port}/{database}{ssl_query}"
+            if is_cosmos_db:
+                mongodb_url = f"mongodb://{host}:{port}/{database}?{cosmos_params}"
+            else:
+                mongodb_url = f"mongodb://{host}:{port}/{database}"
             logger.info(f"MongoDB URL: {mongodb_url}", metadata={"event": "mongodb_url_debug"})
         
         # Connection options
