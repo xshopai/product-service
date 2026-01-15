@@ -52,14 +52,14 @@ RUN mkdir -p logs && chown -R productuser:appgroup logs
 USER productuser
 
 # Expose port
-EXPOSE 1001
+EXPOSE 8001
 
 # Health check (using Python to avoid curl dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:1001/readiness')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/readiness')" || exit 1
 
 # Start development server with auto-reload
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "1001", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
 
 # -----------------------------------------------------------------------------
 # Production stage - Optimized for production deployment
@@ -84,14 +84,14 @@ USER productuser
 ENV TMPDIR=/tmp/uvicorn
 
 # Expose port
-EXPOSE 1001
+EXPOSE 8001
 
 # Health check (using Python to avoid curl dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:1001/readiness')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/readiness')" || exit 1
 
 # Start production server with single worker (multi-worker needs gunicorn for proper process management)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "1001"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
 # Labels for better image management and security scanning
 LABEL maintainer="xshopai Team"

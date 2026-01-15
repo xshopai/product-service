@@ -30,10 +30,10 @@ services:
     container_name: product-service
     restart: unless-stopped
     ports:
-      - "1002:1002"
+      - "8001:8001"
     environment:
       - FLASK_ENV=production
-      - PORT=1002
+      - PORT=8001
       - MONGODB_URI=mongodb://admin:admin123@product-mongodb:27017/product_service_db?authSource=admin
       - RABBITMQ_URL=amqp://admin:admin123@rabbitmq-message-broker:5672
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
@@ -43,7 +43,7 @@ services:
     networks:
       - xshopai-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:1002/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3

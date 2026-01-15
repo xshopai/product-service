@@ -22,7 +22,7 @@ class Config(BaseSettings):
     environment: str = Field(default="development", env="ENVIRONMENT")
     
     # Server configuration
-    port: int = Field(default=1001, env="PORT")
+    port: int = Field(default=8001, env="PORT")
     host: str = Field(default="0.0.0.0", env="HOST")
     
     # Logging configuration
