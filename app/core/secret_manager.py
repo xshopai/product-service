@@ -92,69 +92,86 @@ def get_database_config() -> Dict[str, Any]:
     """
     Get database configuration from secrets or environment variables.
     
-    Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
-    Both local secrets.json and Azure Key Vault use the same naming convention.
+    Priority order:
+    1. MONGODB_URI environment variable (Azure Container Apps)
+    2. mongodb-uri secret from Dapr secret store (local development)
     
-    Database name is retrieved from environment variable first (for Azure Container Apps)
-    then falls back to secret store (for local development).
+    Database name priority:
+    1. MONGODB_DATABASE environment variable
+    2. mongodb-database secret from Dapr secret store
+    3. Default: 'productdb'
     
     Returns:
-        Dictionary with database connection parameters
+        Dictionary with 'connection_string' and 'database' keys
     """
-    username = secret_manager.get_secret('mongo-initdb-root-username')
-    password = secret_manager.get_secret('mongo-initdb-root-password')
+    # Try environment variable first (Azure Container Apps)
+    mongodb_uri = os.environ.get('MONGODB_URI')
     
-    # Filter out empty strings - treat them as None
-    username = username if username and username.strip() else None
-    password = password if password and password.strip() else None
+    # Fall back to Dapr secret store (local development)
+    if not mongodb_uri:
+        mongodb_uri = secret_manager.get_secret('product-service-mongodb-uri')
     
-    # Database name: env var first (Azure), then secret store (local dev)
-    database = os.environ.get('MONGODB_DATABASE') or secret_manager.get_secret('mongo-initdb-database') or 'productdb'
+    if not mongodb_uri:
+        raise ValueError(
+            "MongoDB connection string not found. "
+            "Set MONGODB_URI env var or product-service-mongodb-uri in Dapr secret store."
+        )
     
-    config = {
-        'host': secret_manager.get_secret('mongodb-host') or 'localhost',
-        'port': int(secret_manager.get_secret('mongodb-port') or '27019'),
-        'username': username,
-        'password': password,
-        'database': database,
-    }
+    # Get database name
+    database = (
+        os.environ.get('MONGODB_DATABASE') or 
+        secret_manager.get_secret('product-service-mongodb-database') or 
+        'productdb'
+    )
+    
+    # Determine source for logging
+    source = 'env' if os.environ.get('MONGODB_URI') else 'dapr'
     
     logger.info(
         f"Database config retrieved",
         metadata={
             "event": "db_config_retrieved",
-            "host": config['host'],
-            "port": config['port'],
-            "database": config['database'],
-            "has_credentials": bool(username and password)
+            "source": source,
+            "database": database,
+            "has_connection_string": True
         }
     )
     
-    return config
+    return {
+        'connection_string': mongodb_uri,
+        'database': database,
+    }
 
 
 def get_jwt_config() -> Dict[str, Any]:
     """
     Get JWT configuration from secrets or environment variables.
-    Only jwt-secret is truly secret - algorithm and expiration are just config.
+    
+    Priority order for JWT secret:
+    1. JWT_SECRET environment variable (Azure Container Apps)
+    2. product-service-jwt-secret from Dapr secret store (local development)
     
     Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
     
     Returns:
         Dictionary with JWT configuration parameters
     """
-    # Only the secret key is actually secret - get it securely
-    jwt_secret = secret_manager.get_secret('jwt-secret')
+    # Try environment variable first (Azure Container Apps)
+    jwt_secret = os.environ.get('JWT_SECRET')
+    
+    # Fall back to Dapr secret store (local development)
     if not jwt_secret:
-        # Fallback to environment variable (for local dev)
-        jwt_secret = os.environ.get('JWT_SECRET', 'your_jwt_secret_key')
+        jwt_secret = secret_manager.get_secret('product-service-jwt-secret')
+    
+    if not jwt_secret:
         logger.warning(
-            "JWT_SECRET not found in secret store, using environment variable or default",
+            "JWT secret not found, using default (NOT SECURE FOR PRODUCTION)",
             metadata={
                 "event": "jwt_secret_fallback",
-                "source": "environment" if os.environ.get('JWT_SECRET') else "default"
+                "source": "default"
             }
         )
+        jwt_secret = 'your_jwt_secret_key'
     
     # Algorithm and expiration are just configuration, not secrets
     # Get from environment variables directly - no need for secret store
