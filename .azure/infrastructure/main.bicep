@@ -5,9 +5,6 @@
 @description('Environment name')
 param environment string = 'dev'
 
-@description('Location for resources')
-param location string = resourceGroup().location
-
 @description('Cosmos DB account name')
 param cosmosAccountName string = 'cosmos-xshopai-${environment}'
 
@@ -34,6 +31,8 @@ resource mongoDatabase 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases@2
 }
 
 // Create products collection with indexes
+// Note: Cosmos DB MongoDB API doesn't support nested paths in compound indexes
+// Keep indexes simple for serverless tier - complex indexes can be added via app code
 resource productsCollection 'Microsoft.DocumentDB/databaseAccounts/mongodbDatabases/collections@2024-05-15' = {
   parent: mongoDatabase
   name: 'products'
@@ -49,13 +48,16 @@ resource productsCollection 'Microsoft.DocumentDB/databaseAccounts/mongodbDataba
           options: { unique: true }
         }
         {
-          key: { keys: ['status', 'taxonomy.category', 'price'] }
+          key: { keys: ['status'] }
         }
         {
-          key: { keys: ['is_active', 'status', 'taxonomy.category'] }
+          key: { keys: ['is_active'] }
         }
         {
           key: { keys: ['parentId'] }
+        }
+        {
+          key: { keys: ['price'] }
         }
       ]
     }
