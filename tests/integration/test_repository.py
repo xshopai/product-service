@@ -13,19 +13,19 @@ class TestProductRepositoryIntegration:
     """Integration tests for ProductRepository with real database"""
 
     @pytest.fixture(autouse=True)
-    async def setup_and_teardown(self):
+    def setup_and_teardown(self):
         """Set up test database and clean up after each test"""
         # This would be configured in conftest.py with a test database
-        # For now, we'll use mocks to show the structure
+        # For now, we skip actual database operations
         self.client = None  # Would be AsyncIOMotorClient("mongodb://test-db")
-        self.repository = ProductRepository(db=None)  # Would use test database
+        self.repository = None  # Would use test database collection
         
         yield
         
-        # Cleanup: remove test data
-        if self.client:
-            await self.client.drop_database("test_product_service")
-            self.client.close()
+        # Cleanup: remove test data - commented out since we're not using real DB
+        # if self.client:
+        #     await self.client.drop_database("test_product_service")
+        #     self.client.close()
 
     async def test_create_product_integration(self):
         """Test creating a product in the database"""

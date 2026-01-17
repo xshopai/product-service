@@ -14,14 +14,15 @@ from app.core.config import config
 from app.events.publishers.publisher import DaprEventPublisher
 
 
+@pytest.mark.asyncio
 class TestDaprIntegration:
     """Integration tests for Dapr sidecar and building blocks"""
 
     @pytest.fixture
-    async def dapr_publisher(self):
+    def dapr_publisher(self):
         """Create a DaprEventPublisher instance"""
         publisher = DaprEventPublisher()
-        yield publisher
+        return publisher
 
     @pytest.fixture
     def dapr_port(self):
