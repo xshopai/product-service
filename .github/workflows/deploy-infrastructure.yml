@@ -63,6 +63,7 @@ jobs:
           template: .azure/infrastructure/main.bicep
           parameters: >
             environment=${{ steps.env.outputs.environment }}
+            jwtSecret=${{ secrets.JWT_SECRET }}
           failOnStdErr: false
           deploymentName: product-service-infra-${{ github.run_number }}
 
