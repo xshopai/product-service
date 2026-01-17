@@ -155,17 +155,18 @@ jobs:
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy Container App
-        uses: azure/arm-deploy@v2
-        with:
-          subscriptionId: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          resourceGroupName: ${{ steps.env.outputs.resource_group }}
-          template: .azure/app/main.bicep
-          parameters: >
-            environment=${{ steps.env.outputs.environment }}
-            containerImage=${{ steps.env.outputs.acr_name }}.azurecr.io/${{ env.SERVICE_NAME }}:${{ needs.build.outputs.image_tag }}
-          failOnStdErr: false
-          deploymentName: product-service-app-${{ github.run_number }}
+      - name: Update Container App Image
+        run: |
+          CONTAINER_APP_NAME="ca-${{ env.SERVICE_NAME }}-${{ steps.env.outputs.environment }}"
+          IMAGE="${{ steps.env.outputs.acr_name }}.azurecr.io/${{ env.SERVICE_NAME }}:${{ needs.build.outputs.image_tag }}"
+          
+          echo "Updating Container App: $CONTAINER_APP_NAME"
+          echo "New image: $IMAGE"
+          
+          az containerapp update \
+            --name $CONTAINER_APP_NAME \
+            --resource-group ${{ steps.env.outputs.resource_group }} \
+            --image $IMAGE
 
       - name: Deployment Summary
         run: |
