@@ -41,6 +41,9 @@ param acrName string = environment == 'prod' ? 'xshopaimodulesprod' : 'xshopaimo
 @description('Initial container image tag (will be updated by app deployment)')
 param initialImageTag string = 'latest'
 
+@description('Skip role assignments (default false - deployment script handles idempotency)')
+param skipRoleAssignments bool = false
+
 // Reference existing Cosmos DB account (deployed by platform)
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existing = {
   name: cosmosAccountName
@@ -115,27 +118,90 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
 
-// Grant Managed Identity AcrPull role on ACR
-// Using deterministic guid based on subscription, resource group, and static identifiers for idempotency
-resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().subscriptionId, resourceGroup().id, acrName, managedIdentityName, acrPullRoleId)
-  scope: acr
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', acrPullRoleId)
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
+// ========================================
+// ROLE ASSIGNMENTS - Idempotent using Azure CLI deployment script
+// Azure ARM role assignments are NOT idempotent - they fail if already exist
+// Solution: Use deployment script with Azure CLI to check existence before creating
+// This ensures deployments are repeatable without manual intervention
+// ========================================
 
-// Grant Managed Identity Key Vault Secrets User role
-// Using deterministic guid based on subscription, resource group, and static identifiers for idempotency
-resource keyVaultSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(subscription().subscriptionId, resourceGroup().id, keyVaultName, managedIdentityName, keyVaultSecretsUserRoleId)
-  scope: keyVault
+// Deployment script to create role assignments idempotently
+// Uses Azure CLI to check if role assignment exists before creating
+resource roleAssignmentsScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (!skipRoleAssignments) {
+  name: 'script-role-assignments-${serviceName}'
+  location: location
+  kind: 'AzureCLI'
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${managedIdentity.id}': {}
+    }
+  }
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
-    principalId: managedIdentity.properties.principalId
-    principalType: 'ServicePrincipal'
+    azCliVersion: '2.52.0'
+    timeout: 'PT10M'
+    retentionInterval: 'PT1H'
+    cleanupPreference: 'OnSuccess'
+    environmentVariables: [
+      {
+        name: 'PRINCIPAL_ID'
+        value: managedIdentity.properties.principalId
+      }
+      {
+        name: 'ACR_RESOURCE_ID'
+        value: acr.id
+      }
+      {
+        name: 'KEY_VAULT_RESOURCE_ID'
+        value: keyVault.id
+      }
+      {
+        name: 'ACR_PULL_ROLE_ID'
+        value: acrPullRoleId
+      }
+      {
+        name: 'KEY_VAULT_SECRETS_USER_ROLE_ID'
+        value: keyVaultSecretsUserRoleId
+      }
+    ]
+    scriptContent: '''
+      #!/bin/bash
+      set -e
+
+      echo "=== Idempotent Role Assignment Script ==="
+      
+      # Function to assign role if not exists
+      assign_role_if_not_exists() {
+        local SCOPE=$1
+        local ROLE_ID=$2
+        local ROLE_NAME=$3
+        
+        echo "Checking if $ROLE_NAME role assignment exists..."
+        
+        # Check if assignment already exists
+        EXISTING=$(az role assignment list --assignee "$PRINCIPAL_ID" --scope "$SCOPE" --role "$ROLE_ID" --query "[0].id" -o tsv 2>/dev/null || true)
+        
+        if [ -n "$EXISTING" ]; then
+          echo "✓ $ROLE_NAME role assignment already exists, skipping."
+        else
+          echo "Creating $ROLE_NAME role assignment..."
+          az role assignment create \
+            --assignee-object-id "$PRINCIPAL_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --scope "$SCOPE" \
+            --role "$ROLE_ID"
+          echo "✓ $ROLE_NAME role assignment created."
+        fi
+      }
+
+      # Assign AcrPull role on ACR
+      assign_role_if_not_exists "$ACR_RESOURCE_ID" "$ACR_PULL_ROLE_ID" "AcrPull"
+      
+      # Assign Key Vault Secrets User role on Key Vault
+      assign_role_if_not_exists "$KEY_VAULT_RESOURCE_ID" "$KEY_VAULT_SECRETS_USER_ROLE_ID" "Key Vault Secrets User"
+      
+      echo "=== Role assignments complete ==="
+    '''
   }
 }
 
@@ -290,8 +356,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [
     mongodbUriSecret
     mongodbDatabaseSecret
-    acrPullRoleAssignment
-    keyVaultSecretsUserRoleAssignment
+    // Note: Role assignments are conditionally deployed and may be skipped
+    // Platform infrastructure should have already created these
   ]
 }
 
