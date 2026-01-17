@@ -43,6 +43,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
