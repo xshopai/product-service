@@ -122,6 +122,17 @@ resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-
   }
 }
 
+// Grant Managed Identity Key Vault Secrets User role
+resource keyVaultSecretsUserRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, managedIdentity.id, 'keyvaultsecretsuser')
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6') // Key Vault Secrets User
+    principalId: managedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Store MongoDB connection string in Key Vault
 resource mongodbUriSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
@@ -274,6 +285,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     mongodbUriSecret
     mongodbDatabaseSecret
     acrPullRoleAssignment
+    keyVaultSecretsUserRoleAssignment
   ]
 }
 
