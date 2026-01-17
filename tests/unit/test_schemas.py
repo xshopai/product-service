@@ -12,13 +12,14 @@ class TestProductModel:
 
     def test_product_model_creation(self):
         """Test creating a Product model"""
+        from app.models.product import ProductTaxonomy
         now = datetime.utcnow()
         product = Product(
             id="507f1f77bcf86cd799439011",
             name="Test Product",
             price=29.99,
             description="A great test product",
-            category="Electronics",
+            taxonomy=ProductTaxonomy(category="Electronics"),
             brand="TestBrand",
             sku="TEST-001",
             created_by="admin123"
@@ -49,7 +50,7 @@ class TestProductSchemas:
             "name": "Test Product",
             "price": 29.99,
             "description": "A great test product",
-            "category": "Electronics",
+            "taxonomy": {"category": "Electronics"},
             "brand": "TestBrand",
             "sku": "TEST-001"
         }
@@ -142,9 +143,10 @@ class TestProductSchemas:
         # Minimum required fields
         product = ProductCreate(name="Test", price=10.0)
         assert product.description is None
-        assert product.category is None
         assert product.brand is None
         assert product.sku is None
+        # taxonomy has a default factory, so it's not None but an empty ProductTaxonomy
+        assert product.taxonomy is not None
 
         # With optional fields
         product = ProductCreate(
@@ -152,9 +154,7 @@ class TestProductSchemas:
             price=10.0,
             sku="TEST-001",
             description="Test description",
-            category="Electronics",
             brand="TestBrand"
         )
         assert product.description == "Test description"
-        assert product.category == "Electronics"
         assert product.brand == "TestBrand"

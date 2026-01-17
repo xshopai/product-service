@@ -31,11 +31,12 @@ class TestProductRepositoryIntegration:
         """Test creating a product in the database"""
         # This test would run against a real test database
         # For now, it's a placeholder showing the structure
+        from app.models.product import ProductTaxonomy
         product_data = Product(
             name="Integration Test Product",
             price=49.99,
             sku="INT-TEST-001",
-            category="Testing",
+            taxonomy=ProductTaxonomy(category="Testing"),
             created_by="test_user",
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()

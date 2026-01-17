@@ -18,8 +18,8 @@ class TestProductAPIEndToEnd:
 
     def test_health_endpoints(self):
         """Test health check endpoints"""
-        # Test liveness
-        response = self.client.get("/api/health/live")
+        # Test liveness - endpoint is at /liveness (no /api prefix per main.py)
+        response = self.client.get("/liveness")
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "alive"  # Updated to match actual response
@@ -27,7 +27,7 @@ class TestProductAPIEndToEnd:
 
         # Test readiness - will return 503 when dependencies (DB, Dapr) are not available
         # This is the correct behavior for sophisticated health checks
-        response = self.client.get("/api/health/ready")
+        response = self.client.get("/readiness")
         data = response.json()
         
         # In test environment without proper DB/Dapr setup, expect 503
@@ -69,7 +69,7 @@ class TestProductAPIEndToEnd:
             "price": 99.99,
             "sku": "E2E-TEST-001",
             "description": "End-to-end test product",
-            "category": "Testing"
+            "taxonomy": {"category": "Testing"}
         }
         
         # In a real e2e test:

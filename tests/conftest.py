@@ -51,7 +51,7 @@ def sample_product_data():
         "name": "Test Product",
         "price": 29.99,
         "description": "A great test product",
-        "category": "Electronics",
+        "taxonomy": {"category": "Electronics"},
         "brand": "TestBrand",
         "sku": "TEST-001"
     }
@@ -60,11 +60,12 @@ def sample_product_data():
 @pytest.fixture
 def sample_product_create():
     """Sample ProductCreate schema for testing"""
+    from app.models.product import ProductTaxonomy
     return ProductCreate(
         name="Test Product",
         price=29.99,
         description="A great test product",
-        category="Electronics",
+        taxonomy=ProductTaxonomy(category="Electronics"),
         brand="TestBrand",
         sku="TEST-001"
     )
@@ -73,12 +74,13 @@ def sample_product_create():
 @pytest.fixture
 def sample_product_model():
     """Sample Product model for testing"""
+    from app.models.product import ProductTaxonomy
     return Product(
         id="507f1f77bcf86cd799439011",
         name="Test Product",
         price=29.99,
         description="A great test product",
-        category="Electronics",
+        taxonomy=ProductTaxonomy(category="Electronics"),
         brand="TestBrand",
         sku="TEST-001",
         created_by="user123"
@@ -93,7 +95,7 @@ def mock_product_doc():
         "name": "Test Product",
         "price": 29.99,
         "description": "A great test product",
-        "category": "Electronics",
+        "taxonomy": {"category": "Electronics"},
         "brand": "TestBrand",
         "sku": "TEST-001",
         "in_stock": True,

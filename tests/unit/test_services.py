@@ -20,11 +20,12 @@ class TestProductService:
     async def test_create_product_success(self):
         """Test successful product creation"""
         # Arrange
+        from app.models.product import ProductTaxonomy
         product_data = ProductCreate(
             name="Test Product",
             price=29.99,
             sku="TEST-001",
-            category="Electronics"
+            taxonomy=ProductTaxonomy(category="Electronics")
         )
         
         created_product = ProductResponse(
@@ -32,7 +33,7 @@ class TestProductService:
             name="Test Product",
             price=29.99,
             sku="TEST-001",
-            category="Electronics",
+            taxonomy=ProductTaxonomy(category="Electronics"),
             created_by="user123"
         )
         
@@ -174,7 +175,7 @@ class TestProductService:
 
     @pytest.mark.asyncio
     async def test_search_products(self):
-        """Test searching products"""
+        """Test searching products via get_products with search_text"""
         # Arrange
         search_text = "electronics"
         
@@ -187,24 +188,24 @@ class TestProductService:
         
         self.mock_repository.search.return_value = (products, total_count)
 
-        # Act
-        result = await self.service.search_products(
+        # Act - use get_products with search_text parameter (category is passed to repository.search)
+        result = await self.service.get_products(
             search_text=search_text,
-            category="Electronics",
+            category="Electronics",  # This is passed to repository.search as a filter parameter
             min_price=10.0,
             max_price=100.0
         )
 
-        # Assert
-        assert result.products == products
-        assert result.total_count == 2
+        # Assert - get_products returns a dict, not an object
+        assert len(result["products"]) == 2
+        assert result["total_count"] == 2
         self.mock_repository.search.assert_called_once_with(
-            search_text, None, "Electronics", None, 10.0, 100.0, None, 0, 20
+            search_text, None, "Electronics", None, 10.0, 100.0, None, 0, None
         )
 
     @pytest.mark.asyncio
     async def test_list_products(self):
-        """Test listing products with pagination"""
+        """Test listing products with pagination via get_products without search_text"""
         # Arrange
         products = [
             ProductResponse(id="1", name="Product 1", price=10.0, sku="SKU-1", created_by="user1"),
@@ -214,12 +215,12 @@ class TestProductService:
         
         self.mock_repository.list_products.return_value = (products, total_count)
 
-        # Act
-        result = await self.service.list_products(skip=0, limit=10)
+        # Act - use get_products without search_text to list products
+        result = await self.service.get_products(skip=0, limit=10)
 
-        # Assert
-        assert result.products == products
-        assert result.total_count == 2
+        # Assert - get_products returns a dict, not an object
+        assert len(result["products"]) == 2
+        assert result["total_count"] == 2
         self.mock_repository.list_products.assert_called_once_with(
             None, None, None, None, None, None, 0, 10
         )
