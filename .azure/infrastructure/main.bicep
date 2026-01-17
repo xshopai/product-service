@@ -41,8 +41,8 @@ param acrName string = environment == 'prod' ? 'xshopaimodulesprod' : 'xshopaimo
 @description('Initial container image tag (will be updated by app deployment)')
 param initialImageTag string = 'latest'
 
-@description('Skip role assignments (default false - deployment script handles idempotency)')
-param skipRoleAssignments bool = false
+@description('Skip role assignments (handled by workflow for idempotency)')
+param skipRoleAssignments bool = true
 
 // Reference existing Cosmos DB account (deployed by platform)
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existing = {
@@ -114,96 +114,17 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: acrName
 }
 
-// Role definition IDs
+// Role definition IDs (kept for reference, actual assignment done in workflow)
 var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
 
 // ========================================
-// ROLE ASSIGNMENTS - Idempotent using Azure CLI deployment script
+// ROLE ASSIGNMENTS
 // Azure ARM role assignments are NOT idempotent - they fail if already exist
-// Solution: Use deployment script with Azure CLI to check existence before creating
+// Solution: Role assignments are handled by GitHub Actions workflow using Azure CLI
+// The workflow's OIDC identity has proper permissions to create role assignments
 // This ensures deployments are repeatable without manual intervention
 // ========================================
-
-// Deployment script to create role assignments idempotently
-// Uses Azure CLI to check if role assignment exists before creating
-resource roleAssignmentsScript 'Microsoft.Resources/deploymentScripts@2023-08-01' = if (!skipRoleAssignments) {
-  name: 'script-role-assignments-${serviceName}'
-  location: location
-  kind: 'AzureCLI'
-  identity: {
-    type: 'UserAssigned'
-    userAssignedIdentities: {
-      '${managedIdentity.id}': {}
-    }
-  }
-  properties: {
-    azCliVersion: '2.52.0'
-    timeout: 'PT10M'
-    retentionInterval: 'PT1H'
-    cleanupPreference: 'OnSuccess'
-    environmentVariables: [
-      {
-        name: 'PRINCIPAL_ID'
-        value: managedIdentity.properties.principalId
-      }
-      {
-        name: 'ACR_RESOURCE_ID'
-        value: acr.id
-      }
-      {
-        name: 'KEY_VAULT_RESOURCE_ID'
-        value: keyVault.id
-      }
-      {
-        name: 'ACR_PULL_ROLE_ID'
-        value: acrPullRoleId
-      }
-      {
-        name: 'KEY_VAULT_SECRETS_USER_ROLE_ID'
-        value: keyVaultSecretsUserRoleId
-      }
-    ]
-    scriptContent: '''
-      #!/bin/bash
-      set -e
-
-      echo "=== Idempotent Role Assignment Script ==="
-      
-      # Function to assign role if not exists
-      assign_role_if_not_exists() {
-        local SCOPE=$1
-        local ROLE_ID=$2
-        local ROLE_NAME=$3
-        
-        echo "Checking if $ROLE_NAME role assignment exists..."
-        
-        # Check if assignment already exists
-        EXISTING=$(az role assignment list --assignee "$PRINCIPAL_ID" --scope "$SCOPE" --role "$ROLE_ID" --query "[0].id" -o tsv 2>/dev/null || true)
-        
-        if [ -n "$EXISTING" ]; then
-          echo "✓ $ROLE_NAME role assignment already exists, skipping."
-        else
-          echo "Creating $ROLE_NAME role assignment..."
-          az role assignment create \
-            --assignee-object-id "$PRINCIPAL_ID" \
-            --assignee-principal-type ServicePrincipal \
-            --scope "$SCOPE" \
-            --role "$ROLE_ID"
-          echo "✓ $ROLE_NAME role assignment created."
-        fi
-      }
-
-      # Assign AcrPull role on ACR
-      assign_role_if_not_exists "$ACR_RESOURCE_ID" "$ACR_PULL_ROLE_ID" "AcrPull"
-      
-      # Assign Key Vault Secrets User role on Key Vault
-      assign_role_if_not_exists "$KEY_VAULT_RESOURCE_ID" "$KEY_VAULT_SECRETS_USER_ROLE_ID" "Key Vault Secrets User"
-      
-      echo "=== Role assignments complete ==="
-    '''
-  }
-}
 
 // Store MongoDB connection string in Key Vault
 resource mongodbUriSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
