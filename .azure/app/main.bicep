@@ -86,7 +86,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
         {
           name: 'jwt-secret'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/product-service-jwt-secret'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/jwt-secret'
           identity: managedIdentity.id
         }
       ]
