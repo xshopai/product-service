@@ -149,9 +149,11 @@ def get_jwt_config() -> Dict[str, Any]:
     
     Priority order for JWT secret:
     1. JWT_SECRET environment variable (Azure Container Apps)
-    2. product-service-jwt-secret from Dapr secret store (local development)
+    2. jwt-secret from Dapr secret store (local development)
     
-    Note: Secret names use hyphens (not underscores) for Azure Key Vault compatibility.
+    Note: jwt-secret is a shared secret across all services, created by Platform
+    Infrastructure deployment. Secret names use hyphens (not underscores) for
+    Azure Key Vault compatibility.
     
     Returns:
         Dictionary with JWT configuration parameters
@@ -161,7 +163,7 @@ def get_jwt_config() -> Dict[str, Any]:
     
     # Fall back to Dapr secret store (local development)
     if not jwt_secret:
-        jwt_secret = secret_manager.get_secret('product-service-jwt-secret')
+        jwt_secret = secret_manager.get_secret('jwt-secret')
     
     if not jwt_secret:
         logger.warning(

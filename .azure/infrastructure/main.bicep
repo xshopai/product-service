@@ -87,18 +87,8 @@ resource mongodbDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
-// JWT Secret for authentication
-// Note: Pass via parameter during deployment: --parameters jwtSecret='your-secret-here'
-@secure()
-param jwtSecret string = ''
-
-resource jwtSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(jwtSecret)) {
-  parent: keyVault
-  name: 'product-service-jwt-secret'
-  properties: {
-    value: jwtSecret
-  }
-}
+// Note: jwt-secret is created by Platform Infrastructure deployment (shared across all services)
+// Product-service app will reference the existing jwt-secret from Key Vault
 
 // Outputs
 output cosmosAccountName string = cosmosAccount.name

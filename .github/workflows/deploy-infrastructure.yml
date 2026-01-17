@@ -63,7 +63,6 @@ jobs:
           template: .azure/infrastructure/main.bicep
           parameters: >
             environment=${{ steps.env.outputs.environment }}
-            jwtSecret=${{ secrets.JWT_SECRET }}
           failOnStdErr: false
           deploymentName: product-service-infra-${{ github.run_number }}
 
@@ -75,4 +74,6 @@ jobs:
           echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| MongoDB Database (productdb) | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
           echo "| Products Collection | ✅ Created |" >> $GITHUB_STEP_SUMMARY
-          echo "| Key Vault Secrets | ✅ Configured |" >> $GITHUB_STEP_SUMMARY
+          echo "| Key Vault Secrets (mongodb-uri, mongodb-database) | ✅ Configured |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** jwt-secret is managed by Platform Infrastructure deployment" >> $GITHUB_STEP_SUMMARY
