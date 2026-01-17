@@ -26,8 +26,8 @@ param serviceName string = 'product-service'
 @description('Container port')
 param containerPort int = 8001
 
-@description('Minimum replicas')
-param minReplicas int = 0
+@description('Minimum replicas (set to 1 for dev to avoid cold starts)')
+param minReplicas int = environment == 'dev' ? 1 : 0
 
 @description('Maximum replicas')
 param maxReplicas int = 3
@@ -62,7 +62,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       activeRevisionsMode: 'Single'
       ingress: {
-        external: false
+        external: true
         targetPort: containerPort
         transport: 'http'
         allowInsecure: false
