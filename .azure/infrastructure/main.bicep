@@ -106,6 +106,22 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   name: managedIdentityName
 }
 
+// Reference existing ACR
+resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
+  name: acrName
+}
+
+// Grant Managed Identity AcrPull role on ACR
+resource acrPullRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(acr.id, managedIdentity.id, 'acrpull')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d') // AcrPull
+    principalId: managedIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // Store MongoDB connection string in Key Vault
 resource mongodbUriSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
@@ -153,6 +169,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         appPort: containerPort
         appProtocol: 'http'
       }
+      registries: [
+        {
+          server: '${acrName}.azurecr.io'
+          identity: managedIdentity.id
+        }
+      ]
       secrets: [
         {
           name: 'mongodb-uri'
@@ -251,6 +273,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   dependsOn: [
     mongodbUriSecret
     mongodbDatabaseSecret
+    acrPullRoleAssignment
   ]
 }
 
