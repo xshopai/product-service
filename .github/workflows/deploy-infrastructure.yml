@@ -15,14 +15,6 @@ on:
         options:
           - dev
           - prod
-      skipRoleAssignments:
-        description: 'Skip role assignments (use deployment script for idempotent creation)'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
 
   push:
     branches:
@@ -60,10 +52,8 @@ jobs:
         id: env
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
-          SKIP_ROLES="${{ github.event.inputs.skipRoleAssignments || 'false' }}"
           echo "environment=$ENV" >> $GITHUB_OUTPUT
           echo "resource_group=rg-xshopai-$ENV" >> $GITHUB_OUTPUT
-          echo "skip_role_assignments=$SKIP_ROLES" >> $GITHUB_OUTPUT
 
       - name: Deploy Infrastructure
         uses: azure/arm-deploy@v2
@@ -73,12 +63,10 @@ jobs:
           template: .azure/infrastructure/main.bicep
           parameters: >
             environment=${{ steps.env.outputs.environment }}
-            skipRoleAssignments=true
           failOnStdErr: false
           deploymentName: product-service-infra-${{ github.run_number }}
 
       - name: Create Role Assignments (Idempotent)
-        if: steps.env.outputs.skip_role_assignments != 'true'
         run: |
           ENV="${{ steps.env.outputs.environment }}"
           
@@ -140,6 +128,6 @@ jobs:
           echo "| MongoDB Database (productdb) | ✅ Deployed |" >> $GITHUB_STEP_SUMMARY
           echo "| Products Collection | ✅ Created |" >> $GITHUB_STEP_SUMMARY
           echo "| Key Vault Secrets (mongodb-uri, mongodb-database) | ✅ Configured |" >> $GITHUB_STEP_SUMMARY
-          echo "| Role Assignments | ${{ steps.env.outputs.skip_role_assignments == 'true' && '⏭️ Skipped' || '✅ Created (idempotent)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Role Assignments (AcrPull, Key Vault Secrets User) | ✅ Created (idempotent) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> **Note:** Role assignments now use Azure CLI deployment script for idempotency - safe to re-run" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** Role assignments use Azure CLI for idempotency - safe to re-run" >> $GITHUB_STEP_SUMMARY

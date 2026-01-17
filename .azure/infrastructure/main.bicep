@@ -41,9 +41,6 @@ param acrName string = environment == 'prod' ? 'xshopaimodulesprod' : 'xshopaimo
 @description('Initial container image tag (will be updated by app deployment)')
 param initialImageTag string = 'latest'
 
-@description('Skip role assignments (handled by workflow for idempotency)')
-param skipRoleAssignments bool = true
-
 // Reference existing Cosmos DB account (deployed by platform)
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' existing = {
   name: cosmosAccountName
@@ -109,14 +106,10 @@ resource managedIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   name: managedIdentityName
 }
 
-// Reference existing ACR
-resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: acrName
-}
-
-// Role definition IDs (kept for reference, actual assignment done in workflow)
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
-var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+// ACR server is constructed from acrName parameter for registry configuration
+// Role definition IDs (for reference - actual assignment done in workflow)
+// AcrPull: 7f951dda-4ed3-4680-a7ca-43fe172d538d
+// Key Vault Secrets User: 4633458b-17de-408a-b874-0445c86b69e6
 
 // ========================================
 // ROLE ASSIGNMENTS
