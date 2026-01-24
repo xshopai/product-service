@@ -96,33 +96,38 @@ def get_database_config() -> Dict[str, Any]:
     1. MONGODB_URI environment variable (Azure Container Apps)
     2. mongodb-uri secret from Dapr secret store (local development)
     
-    Database name priority:
-    1. MONGODB_DATABASE environment variable
-    2. mongodb-database secret from Dapr secret store
-    3. Default: 'productdb'
+    Database name is extracted from the URI path (e.g., mongodb://host/dbname?params)
     
     Returns:
         Dictionary with 'connection_string' and 'database' keys
     """
+    from urllib.parse import urlparse
+    
     # Try environment variable first (Azure Container Apps)
     mongodb_uri = os.environ.get('MONGODB_URI')
     
     # Fall back to Dapr secret store (local development)
     if not mongodb_uri:
-        mongodb_uri = secret_manager.get_secret('product-service-mongodb-uri')
+        mongodb_uri = secret_manager.get_secret('MONGODB_URI')
     
     if not mongodb_uri:
         raise ValueError(
             "MongoDB connection string not found. "
-            "Set MONGODB_URI env var or product-service-mongodb-uri in Dapr secret store."
+            "Set MONGODB_URI env var or MONGODB_URI in Dapr secret store."
         )
     
-    # Get database name
-    database = (
-        os.environ.get('MONGODB_DATABASE') or 
-        secret_manager.get_secret('product-service-mongodb-database') or 
-        'productdb'
-    )
+    # Extract database name from URI path
+    # URI format: mongodb://user:pass@host:port/database?params
+    # or: mongodb+srv://user:pass@host/database?params
+    parsed = urlparse(mongodb_uri)
+    database = parsed.path.lstrip('/') if parsed.path and parsed.path != '/' else None
+    
+    if not database:
+        database = 'productdb'  # Default fallback
+        logger.warning(
+            f"No database name in URI, using default: {database}",
+            metadata={"event": "db_name_fallback", "database": database}
+        )
     
     # Determine source for logging
     source = 'env' if os.environ.get('MONGODB_URI') else 'dapr'
@@ -163,7 +168,7 @@ def get_jwt_config() -> Dict[str, Any]:
     
     # Fall back to Dapr secret store (local development)
     if not jwt_secret:
-        jwt_secret = secret_manager.get_secret('jwt-secret')
+        jwt_secret = secret_manager.get_secret('JWT_SECRET')
     
     if not jwt_secret:
         logger.warning(

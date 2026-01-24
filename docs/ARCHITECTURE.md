@@ -1,1691 +1,996 @@
-# Product Service - Technical Architecture
-
-> **Service**: Product Service  
-> **Version**: 1.0  
-> **Last Updated**: November 3, 2025  
-> **Status**: Active
+# Product Service - Architecture Document
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Technology Stack](#technology-stack)
-- [Architecture Layers](#architecture-layers)
-- [Code Structure](#code-structure)
-- [Design Patterns](#design-patterns)
-- [Data Layer](#data-layer)
-- [Event-Driven Architecture](#event-driven-architecture)
-- [API Layer](#api-layer)
-- [Error Handling](#error-handling)
-- [Caching Strategy](#caching-strategy)
-- [Testing Strategy](#testing-strategy)
-- [Performance Optimization](#performance-optimization)
+1. [Overview](#1-overview)
+   - 1.1 [Purpose](#11-purpose)
+   - 1.2 [Scope](#12-scope)
+   - 1.3 [Service Summary](#13-service-summary)
+   - 1.4 [Directory Structure](#14-directory-structure)
+   - 1.5 [Key Responsibilities](#15-key-responsibilities)
+   - 1.6 [References](#16-references)
+2. [System Context](#2-system-context)
+   - 2.1 [Context Diagram](#21-context-diagram)
+   - 2.2 [External Interfaces](#22-external-interfaces)
+   - 2.3 [Dependencies](#23-dependencies)
+3. [Data Architecture](#3-data-architecture)
+   - 3.1 [Entity Relationship Diagram](#31-entity-relationship-diagram)
+   - 3.2 [Database Schema](#32-database-schema)
+   - 3.3 [Indexes](#33-indexes)
+   - 3.4 [Caching Strategy](#34-caching-strategy)
+   - 3.5 [Database Configuration](#35-database-configuration)
+4. [API Design](#4-api-design)
+   - 4.1 [Endpoint Summary](#41-endpoint-summary)
+   - 4.2 [Request/Response Specifications](#42-requestresponse-specifications)
+   - 4.3 [Error Response Format](#43-error-response-format)
+   - 4.4 [Error Code Reference](#44-error-code-reference)
+   - 4.5 [Authentication](#45-authentication)
+5. [Event Architecture](#5-event-architecture)
+   - 5.1 [Event Summary](#51-event-summary)
+   - 5.2 [Published Events](#52-published-events)
+   - 5.3 [Subscribed Events](#53-subscribed-events)
+   - 5.4 [Dapr Configuration](#54-dapr-configuration)
+   - 5.5 [Messaging Abstraction Layer](#55-messaging-abstraction-layer)
+6. [Configuration](#6-configuration)
+   - 6.1 [Environment Variables](#61-environment-variables)
+   - 6.2 [Messaging Provider Configuration](#62-messaging-provider-configuration)
+7. [Deployment](#7-deployment)
+   - 7.1 [Deployment Targets](#71-deployment-targets)
+8. [Observability](#8-observability)
+   - 8.1 [Distributed Tracing](#81-distributed-tracing)
+   - 8.2 [Structured Logging](#82-structured-logging)
+   - 8.3 [Metrics & Alerting](#83-metrics--alerting)
+9. [Error Handling](#9-error-handling)
+   - 9.1 [Error Response Format](#91-error-response-format)
+10. [Security](#10-security)
+    - 10.1 [Authentication](#101-authentication)
+    - 10.2 [Authorization](#102-authorization)
+    - 10.3 [Service-to-Service Communication](#103-service-to-service-communication)
+    - 10.4 [Input Validation](#104-input-validation)
+    - 10.5 [CORS Configuration](#105-cors-configuration)
 
 ---
 
-## Overview
+## 1. Overview
 
-Product Service is the **source of truth** for product catalog data in the xshopai platform. It follows a **layered architecture** pattern with clear separation of concerns and implements **event-driven integration** using Dapr Pub/Sub for asynchronous communication.
+### 1.1 Purpose
 
-### Service Responsibilities
+The Product Service is a core microservice within the xshopai e-commerce platform responsible for managing the complete product catalog, including product information, taxonomy, search, and product discovery features. It serves as the **single source of truth** for product data across the platform.
 
-1. **Product Management**: CRUD operations for products and variations
-2. **Product Discovery**: Search, filtering, pagination
-3. **Event Publishing**: Notify other services of product changes
-4. **Event Consumption**: Sync denormalized data from other services (reviews, inventory, analytics)
-5. **Administrative Operations**: Bulk imports, badge management, statistics
+### 1.2 Scope
 
-### Architecture Principles
+#### In Scope
 
-- **Layered Architecture**: Clear separation between API, business logic, and data access
-- **Dependency Injection**: Loose coupling, testability
-- **Repository Pattern**: Abstract data access layer
-- **Event Sourcing (Partial)**: Publish domain events for all state changes
-- **CQRS-Lite**: Separate read/write operations where beneficial
-- **Eventual Consistency**: Accept stale data for performance (5-10s SLA)
+- Product catalog CRUD operations
+- Product variations (parent-child relationships)
+- Hierarchical taxonomy (Department → Category → Subcategory → Product Type)
+- Product search with full-text search and filters
+- Badge management (manual and automated)
+- Bulk product import/export operations
+- SEO metadata management
+- Event publishing for product lifecycle changes
+- Event consumption for denormalized data (reviews, inventory, analytics)
+- Admin product management operations
 
----
+#### Out of Scope
 
-## Technology Stack
+- Inventory management (handled by Inventory Service)
+- Product reviews content (handled by Review Service)
+- Product recommendations (future enhancement)
+- Shopping cart management (handled by Cart Service)
+- Order processing (handled by Order Service)
+- Payment processing (handled by Payment Service)
+- User authentication (handled by Auth Service)
 
-### Runtime & Language
+### 1.3 Service Summary
 
-- **Python**: v3.11+ or v3.12
-- **pip**: Package management
-- **Virtual Environment**: venv or Poetry for dependency isolation
+| Attribute      | Value                              |
+| -------------- | ---------------------------------- |
+| Service Name   | product-service                    |
+| Tech Stack     | Python 3.11+ / FastAPI 0.104+      |
+| Database       | MongoDB 8.0+ (Motor async driver)  |
+| Authentication | JWT (validated from auth-service)  |
+| API Docs       | OpenAPI/Swagger (FastAPI built-in) |
+| Messaging      | Dapr Pub/Sub (RabbitMQ backend)    |
+| Main Port      | 8001                               |
+| Dapr HTTP Port | 3501                               |
+| Dapr gRPC Port | 50001                              |
 
-### Web Framework
-
-- **FastAPI**: Modern async web framework
-- **Uvicorn**: ASGI server (production-ready)
-- **Starlette**: ASGI framework (FastAPI foundation)
-- **Pydantic**: Data validation and serialization
-
-### Database
-
-- **MongoDB**: v7.x (document database)
-- **Motor**: Async MongoDB driver for Python
-- **PyMongo**: Alternative sync driver
-- **Pydantic**: Schema validation and serialization
-  - Type hints for validation
-  - Automatic API documentation
-  - JSON serialization
-
-### Event System
-
-- **Dapr SDK for Python**: Event pub/sub abstraction
-- **RabbitMQ**: Message broker (behind Dapr)
-- **Topics**: `product.events`, `review.events`, `inventory.events`, `analytics.events`
-
-### Validation & Serialization
-
-- **Pydantic**: Request/response models with validation
-- **FastAPI**: Built-in OpenAPI documentation
-- **Python type hints**: Static type checking
-
-### Logging & Monitoring
-
-- **Python logging**: Structured JSON logging
-- **Loguru**: Modern logging alternative
-- **Prometheus Client**: Metrics export
-- **Correlation ID Middleware**: Request tracing
-
-### Testing
-
-- **Pytest**: Unit and integration testing
-- **httpx**: Async HTTP client for testing
-- **pytest-asyncio**: Async test support
-- **Faker**: Test data generation
-- **mongomock**: In-memory MongoDB for tests
-
-### Development Tools
-
-- **Black**: Code formatting
-- **Flake8**: Code linting
-- **mypy**: Static type checking
-- **isort**: Import sorting
-- **pre-commit**: Git hooks for code quality
-- **uvicorn**: ASGI server with hot reload
-
----
-
-## Architecture Layers
-
-### Layer Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      API Layer (HTTP)                        │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
-│  │  Routers   │  │ Middlewares│  │ Dependencies│            │
-│  │ (FastAPI)  │  │(Auth, Log) │  │(Dependency  │            │
-│  │            │  │            │  │ Injection)  │            │
-│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘            │
-└────────┼────────────────┼────────────────┼───────────────────┘
-         │                │                │
-         └────────────────┴────────────────┘
-                          │
-┌─────────────────────────┼─────────────────────────────────────┐
-│                   Service Layer (Business Logic)              │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐ │
-│  │ Product Service│  │ Variation      │  │ Badge Service  │ │
-│  │  (Domain Logic)│  │   Service      │  │                │ │
-│  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘ │
-└───────────┼──────────────────────┼──────────────────┼─────────┘
-            │                      │                  │
-            └──────────────────────┴──────────────────┘
-                                   │
-┌───────────────────────────────────┼──────────────────────────┐
-│                     Repository Layer (Data Access)           │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐│
-│  │Product Repo    │  │ Event Publisher│  │ Event Consumer ││
-│  │  (Motor)       │  │  (Dapr)        │  │  (Dapr)        ││
-│  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘│
-└───────────┼──────────────────────┼──────────────────┼────────┘
-            │                      │                  │
-            ▼                      ▼                  ▼
-      ┌──────────┐          ┌──────────┐      ┌──────────┐
-      │ MongoDB  │          │ RabbitMQ │      │ RabbitMQ │
-      │ (Primary)│          │(Publish) │      │(Consume) │
-      └──────────┘          └──────────┘      └──────────┘
-```
-
-### Layer Responsibilities
-
-#### 1. API Layer (`app/api/`, `app/middleware/`, `app/dependencies/`)
-
-- **Routers**: Define FastAPI route endpoints and HTTP methods
-- **Dependencies**: FastAPI dependency injection for auth, database, services
-- **Middleware**: Authentication, authorization, logging, error handling, CORS
-
-#### 2. Service Layer (`app/services/`)
-
-- **Business Logic**: Product creation rules, validation, workflows
-- **Domain Events**: Trigger event publishing on state changes
-- **Orchestration**: Coordinate multiple repositories/external calls
-
-#### 3. Repository Layer (`app/repositories/`)
-
-- **Data Access**: CRUD operations on MongoDB using Motor (async)
-- **Query Building**: Complex queries, aggregations, pagination
-- **Transactions**: Multi-document operations (where needed)
-
-#### 4. Event Layer (`app/events/`)
-
-- **Event Publishers**: Publish domain events via Dapr
-- **Event Consumers**: Subscribe and handle events from other services
-- **Event Schemas**: Pydantic models for type-safe event payloads
-
----
-
-## Code Structure
+### 1.4 Directory Structure
 
 ```
 product-service/
-├── app/
-│   ├── api/                      # API routes and endpoints
-│   │   ├── v1/
-│   │   │   ├── __init__.py
-│   │   │   ├── products.py            # Product CRUD endpoints
-│   │   │   ├── variations.py          # Variation endpoints
-│   │   │   ├── search.py              # Search/filter endpoints
-│   │   │   ├── admin.py               # Admin-only endpoints
-│   │   │   └── health.py              # Health check endpoints
-│   │   └── __init__.py
-│   │
-│   ├── services/                 # Business logic
-│   │   ├── __init__.py
-│   │   ├── product_service.py         # Product domain logic
-│   │   ├── variation_service.py       # Variation logic
-│   │   ├── badge_service.py           # Badge assignment logic
-│   │   ├── search_service.py          # Search/filter logic
-│   │   └── bulk_import_service.py     # Bulk operations
-│   │
-│   ├── repositories/             # Data access layer
-│   │   ├── __init__.py
-│   │   ├── product_repository.py      # MongoDB queries
-│   │   ├── base_repository.py         # Shared CRUD operations
-│   │   └── query_builder.py           # Complex query helper
-│   │
-│   ├── models/                   # Pydantic models & MongoDB schemas
-│   │   ├── __init__.py
-│   │   ├── product.py                 # Product Pydantic model
-│   │   ├── variation.py               # Variation model
-│   │   └── database.py                # MongoDB document schemas
-│   │
-│   ├── events/                   # Event-driven components
-│   │   ├── __init__.py
-│   │   ├── publishers/
-│   │   │   ├── __init__.py
-│   │   │   ├── product_publisher.py   # Publish product events
-│   │   │   └── base_publisher.py      # Base publisher class
-│   │   ├── consumers/
-│   │   │   ├── __init__.py
-│   │   │   ├── review_consumer.py     # Consume review events
-│   │   │   ├── inventory_consumer.py  # Consume inventory events
-│   │   │   ├── analytics_consumer.py  # Consume analytics events
-│   │   │   └── qa_consumer.py         # Consume Q&A events
-│   │   └── schemas/
-│   │       ├── __init__.py
-│   │       ├── product_events.py      # Product event Pydantic models
-│   │       ├── review_events.py       # Review event models
-│   │       └── inventory_events.py    # Inventory event models
-│   │
-│   ├── middleware/               # FastAPI middleware
-│   │   ├── __init__.py
-│   │   ├── auth.py                    # JWT validation
-│   │   ├── rbac.py                    # Role-based access control
-│   │   ├── correlation_id.py          # Request tracing
-│   │   ├── logging.py                 # Request/response logging
-│   │   └── error_handler.py           # Global error handler
-│   │
-│   ├── schemas/                  # Request/Response schemas (Pydantic)
-│   │   ├── __init__.py
-│   │   ├── product_request.py         # Create/Update request models
-│   │   ├── product_response.py        # Response models
-│   │   └── common.py                  # Shared schemas (pagination, etc.)
-│   │
-│   ├── dependencies/             # FastAPI dependency injection
-│   │   ├── __init__.py
-│   │   ├── database.py                # Database connection dependency
-│   │   ├── auth.py                    # Authentication dependency
-│   │   └── services.py                # Service layer dependencies
-│   │
-│   ├── core/                     # Core configuration
-│   │   ├── __init__.py
-│   │   ├── config.py                  # Settings (Pydantic Settings)
-│   │   ├── database.py                # MongoDB connection
-│   │   ├── dapr_client.py             # Dapr client setup
-│   │   └── logger.py                  # Logging configuration
-│   │
-│   ├── utils/                    # Utility functions
-│   │   ├── __init__.py
-│   │   ├── errors.py                  # Custom exception classes
-│   │   ├── pagination.py              # Pagination helper
-│   │   └── slug.py                    # URL slug generation
-│   │
-│   ├── __init__.py
-│   └── main.py                   # FastAPI app setup & entry point
-│
-├── tests/
-│   ├── __init__.py
-│   ├── unit/                     # Unit tests (services, utils)
-│   │   ├── __init__.py
-│   │   ├── test_product_service.py
-│   │   └── test_utils.py
-│   ├── integration/              # Integration tests (API endpoints)
-│   │   ├── __init__.py
-│   │   └── test_product_api.py
-│   ├── e2e/                      # End-to-end tests
-│   │   ├── __init__.py
-│   │   └── test_workflows.py
-│   ├── fixtures/                 # Test data
-│   │   ├── __init__.py
-│   │   └── product_fixtures.py
-│   └── conftest.py               # Pytest configuration & fixtures
-│
-├── docs/
-│   ├── PRD.md                    # Product requirements
-│   ├── ARCHITECTURE.md           # This document
-│   └── API.md                    # API documentation (optional)
-│
-├── Dockerfile                    # Container definition
-├── docker-compose.yml            # Local dev environment
-├── .env.example                  # Environment variables template
-├── pyproject.toml                # Dependencies (Poetry)
-├── requirements.txt              # Dependencies (pip)
-├── pytest.ini                    # Pytest configuration
-├── .flake8                       # Flake8 linting configuration
-├── mypy.ini                      # mypy type checking configuration
-└── README.md                     # Service readme
+├── .dapr/                      # Dapr configuration
+│   ├── components/             # Pub/sub, state store, secret store
+│   │   ├── pubsub.yaml         # RabbitMQ pub/sub component
+│   │   ├── secretstore.yaml    # Local secrets component
+│   │   └── statestore.yaml     # State store component
+│   └── config.yaml             # Dapr configuration
+├── .github/                    # GitHub workflows and copilot instructions
+├── .vscode/                    # VS Code settings and tasks
+├── docs/                       # Documentation
+│   ├── ARCHITECTURE.md         # This file
+│   ├── PRD.md                  # Product requirements document
+│   └── ...                     # Other documentation
+├── app/                        # Application source code
+│   ├── api/                    # API endpoint handlers
+│   │   ├── products.py         # Public product endpoints
+│   │   ├── admin.py            # Admin product endpoints
+│   │   ├── search.py           # Search endpoints
+│   │   ├── variations.py       # Variation endpoints
+│   │   └── health.py           # Health check endpoints
+│   ├── core/                   # Core utilities
+│   │   ├── config.py           # Configuration management
+│   │   ├── exceptions.py       # Custom exception classes
+│   │   └── logging.py          # Structured logging setup
+│   ├── db/                     # Database connection
+│   │   └── mongodb.py          # MongoDB connection setup
+│   ├── events/                 # Event publishing
+│   │   ├── publisher.py        # Dapr event publisher
+│   │   └── consumers/          # Event consumers
+│   ├── middleware/             # FastAPI middleware
+│   │   ├── auth.py             # JWT authentication
+│   │   ├── correlation.py      # Correlation ID tracking
+│   │   └── error_handler.py    # Global error handler
+│   ├── models/                 # Pydantic models
+│   │   ├── product.py          # Product model
+│   │   ├── variation.py        # Variation model
+│   │   └── badge.py            # Badge model
+│   ├── repositories/           # Data access layer
+│   │   ├── product_repository.py
+│   │   └── base_repository.py
+│   ├── schemas/                # Request/Response schemas
+│   │   ├── product_schemas.py
+│   │   └── search_schemas.py
+│   ├── services/               # Business logic layer
+│   │   ├── product_service.py
+│   │   ├── search_service.py
+│   │   └── badge_service.py
+│   └── dependencies/           # FastAPI dependencies
+│       └── auth.py             # Auth dependencies
+├── tests/                      # Test suite
+│   ├── unit/                   # Unit tests
+│   ├── integration/            # Integration tests
+│   └── conftest.py             # Test fixtures
+├── main.py                     # Application entry point
+├── requirements.txt            # Production dependencies
+├── requirements-dev.txt        # Development dependencies
+├── docker-compose.yml          # Local development setup
+├── Dockerfile                  # Container build instructions
+├── run.ps1                     # Windows run script
+└── run.sh                      # Linux/macOS run script
 ```
+
+### 1.5 Key Responsibilities
+
+1. **Product Management** - CRUD operations for products and variations
+2. **Product Discovery** - Search, filtering, pagination, and autocomplete
+3. **Event Publishing** - Publish `product.created`, `product.updated`, `product.deleted` events
+4. **Event Consumption** - Sync denormalized data from Review, Inventory, and Analytics services
+5. **Admin Operations** - Bulk imports, badge management, statistics
+
+### 1.6 References
+
+| Document             | Link                                                                  |
+| -------------------- | --------------------------------------------------------------------- |
+| PRD                  | [docs/PRD.md](./PRD.md)                                               |
+| Copilot Instructions | [.github/copilot-instructions.md](../.github/copilot-instructions.md) |
 
 ---
 
-## Design Patterns
+## 2. System Context
 
-### 1. Repository Pattern
+### 2.1 Context Diagram
 
-**Purpose**: Abstract database operations from business logic
+```mermaid
+flowchart TB
+    subgraph Users["<b>👤 USERS</b>"]
+        Customer[("👤 Customer")]
+        Admin[("🧑‍💼 Admin User")]
+    end
 
-**Implementation**:
+    subgraph Clients["<b>📱 CLIENT APPLICATIONS</b>"]
+        CustomerUI["🛍️ Customer UI<br/><i>Web/Mobile</i>"]
+        AdminUI["🖥️ Admin UI<br/><i>Web Interface</i>"]
+    end
 
-```python
-# Base Repository (shared CRUD)
-from typing import Generic, TypeVar, Optional, List, Dict, Any
-from motor.motor_asyncio import AsyncIOMotorCollection
-from bson import ObjectId
+    subgraph BFF["<b>🌐 BACKEND FOR FRONTEND</b>"]
+        WebBFF["🔀 Web BFF<br/><i>API Gateway</i>"]
+    end
 
-T = TypeVar('T')
+    subgraph Core["<b>🎯 CORE SERVICE</b>"]
+        PRODUCT["<b>Product Service</b><br/>━━━━━━━━━━━━━━━<br/>📦 Port: 8001<br/>Manages product catalog,<br/>search & discovery"]
+    end
 
-class BaseRepository(Generic[T]):
-    def __init__(self, collection: AsyncIOMotorCollection):
-        self.collection = collection
+    subgraph Services["<b>🔗 DEPENDENT SERVICES</b>"]
+        direction LR
+        Order["🛒 Order Service<br/><i>Order Processing</i>"]
+        Cart["🛒 Cart Service<br/><i>Cart Management</i>"]
+        Review["⭐ Review Service<br/><i>Product Reviews</i>"]
+        Inventory["📊 Inventory Service<br/><i>Stock Management</i>"]
+    end
 
-    async def find_by_id(self, id: str) -> Optional[Dict[str, Any]]:
-        return await self.collection.find_one({"_id": ObjectId(id)})
+    subgraph EventConsumers["<b>📤 EVENT CONSUMERS</b>"]
+        direction LR
+        Audit["📋 Audit Service<br/><i>Audit Logging</i>"]
+        Search["🔍 Search Service<br/><i>Search Index</i>"]
+    end
 
-    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]]:
-        result = await self.collection.insert_one(data)
-        data["_id"] = result.inserted_id
-        return data
+    subgraph Infrastructure["<b>⚙️ INFRASTRUCTURE</b>"]
+        direction TB
+        MongoDB[("🗄️ MongoDB 8.x<br/>Port: 27017")]
+        RabbitMQ[("🐰 RabbitMQ<br/>Message Broker<br/>Port: 5672")]
+        Dapr["📡 Dapr Sidecar<br/>HTTP: 3501"]
+        OTEL["📊 OpenTelemetry<br/>Collector"]
+    end
 
-    async def update(self, id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        await self.collection.update_one(
-            {"_id": ObjectId(id)},
-            {"$set": data}
-        )
-        return await self.find_by_id(id)
+    %% User flows
+    Customer -->|"Uses"| CustomerUI
+    Admin -->|"Uses"| AdminUI
+    CustomerUI -->|"HTTP/REST"| WebBFF
+    AdminUI -->|"HTTP/REST"| WebBFF
+    WebBFF -->|"HTTP/REST<br/>Product Discovery"| PRODUCT
 
-    async def delete(self, id: str) -> bool:
-        result = await self.collection.delete_one({"_id": ObjectId(id)})
-        return result.deleted_count > 0
+    %% Service integrations - HTTP
+    Order -->|"HTTP GET<br/>Get Product Details"| PRODUCT
+    Cart -->|"HTTP GET<br/>Validate Products"| PRODUCT
 
+    %% Event flows - Inbound (consumed)
+    Review -.->|"review.*"| RabbitMQ
+    Inventory -.->|"inventory.*"| RabbitMQ
+    RabbitMQ -.->|"Subscribe"| Dapr
+    Dapr -.->|"Events"| PRODUCT
 
-# Product Repository (domain-specific)
-class ProductRepository(BaseRepository):
-    async def find_by_sku(self, sku: str) -> Optional[Dict[str, Any]]:
-        return await self.collection.find_one({"sku": sku})
+    %% Event flows - Outbound (published)
+    PRODUCT -.->|"Publish"| Dapr
+    Dapr -.->|"product.*"| RabbitMQ
+    RabbitMQ -.->|"product.*"| Audit
+    RabbitMQ -.->|"product.*"| Search
 
-    async def search_products(self, filters: Dict[str, Any], limit: int = 20) -> List[Dict[str, Any]]:
-        cursor = self.collection.find(filters).limit(limit)
-        return await cursor.to_list(length=limit)
+    %% Infrastructure connections
+    PRODUCT -->|"MongoDB Queries"| MongoDB
+    PRODUCT -->|"OTLP Traces"| OTEL
 
-    async def find_variations(self, parent_id: str) -> List[Dict[str, Any]]:
-        cursor = self.collection.find({"parentId": parent_id})
-        return await cursor.to_list(length=None)
+    %% Styling
+    classDef core fill:#0969da,stroke:#0550ae,color:#fff,stroke-width:3px,font-weight:bold
+    classDef user fill:#8250df,stroke:#6639ba,color:#fff,stroke-width:2px
+    classDef client fill:#1f6feb,stroke:#1158c7,color:#fff,stroke-width:2px
+    classDef bff fill:#6366f1,stroke:#4f46e5,color:#fff,stroke-width:2px
+    classDef service fill:#0891b2,stroke:#0e7490,color:#fff,stroke-width:2px
+    classDef consumer fill:#65a30d,stroke:#4d7c0f,color:#fff,stroke-width:2px
+    classDef database fill:#059669,stroke:#047857,color:#fff,stroke-width:2px
+    classDef broker fill:#f472b6,stroke:#db2777,color:#fff,stroke-width:2px
+    classDef messaging fill:#d97706,stroke:#b45309,color:#fff,stroke-width:2px
+
+    class PRODUCT core
+    class Customer,Admin user
+    class CustomerUI,AdminUI client
+    class WebBFF bff
+    class Order,Cart,Review,Inventory service
+    class Audit,Search consumer
+    class MongoDB database
+    class RabbitMQ broker
+    class Dapr messaging
 ```
 
-### 2. Service Layer Pattern
+### 2.2 External Interfaces
 
-**Purpose**: Encapsulate business logic, orchestrate repositories
+| System            | Direction | Protocol    | Description                                       |
+| ----------------- | --------- | ----------- | ------------------------------------------------- |
+| Order Service     | In        | HTTP        | Retrieves product details for order validation    |
+| Cart Service      | In        | HTTP        | Validates products and retrieves product details  |
+| Web BFF           | In        | HTTP        | Product discovery, search, and admin operations   |
+| Review Service    | In        | Dapr Events | Consumes review events to update aggregates       |
+| Inventory Service | In        | Dapr Events | Consumes inventory events to update availability  |
+| Audit Service     | Out       | Dapr Events | Publishes product change events for audit logging |
+| Search Service    | Out       | Dapr Events | Publishes product events for search index updates |
+| MongoDB           | Out       | MongoDB     | Persistent storage for product data               |
 
-**Implementation**:
+### 2.3 Dependencies
 
-```python
-from app.repositories.product_repository import ProductRepository
-from app.events.publishers.product_publisher import ProductEventPublisher
-from app.core.logger import logger
-from app.utils.errors import DuplicateSkuError
-from app.models.product import Product
+#### 2.3.1 Upstream Dependencies
 
-class ProductService:
-    def __init__(
-        self,
-        product_repo: ProductRepository,
-        event_publisher: ProductEventPublisher
-    ):
-        self.product_repo = product_repo
-        self.event_publisher = event_publisher
+| Service      | Dependency Type | Purpose              |
+| ------------ | --------------- | -------------------- |
+| Auth Service | HTTP            | JWT token validation |
 
-    async def create_product(self, data: dict) -> Product:
-        # Business validation
-        await self._validate_sku(data["sku"])
+#### 2.3.2 Downstream Consumers
 
-        # Create product
-        product_data = await self.product_repo.create(data)
-        product = Product(**product_data)
+| Consumer       | Interface   | Data Provided             |
+| -------------- | ----------- | ------------------------- |
+| Order Service  | HTTP        | Product validation        |
+| Cart Service   | HTTP        | Product details           |
+| Web BFF        | HTTP        | Product discovery APIs    |
+| Audit Service  | Dapr Events | Product lifecycle events  |
+| Search Service | Dapr Events | Product data for indexing |
 
-        # Publish domain event
-        await self.event_publisher.publish_product_created(product)
+#### 2.3.3 Infrastructure Dependencies
 
-        # Log operation
-        logger.info(f"Product created", extra={
-            "productId": str(product.id),
-            "sku": product.sku
-        })
-
-        return product
-
-    async def _validate_sku(self, sku: str) -> None:
-        existing = await self.product_repo.find_by_sku(sku)
-        if existing:
-            raise DuplicateSkuError(f"SKU {sku} already exists")
-```
-
-### 3. Dependency Injection
-
-**Purpose**: Loose coupling, testability
-
-**Implementation**:
-
-```python
-# Using FastAPI's dependency injection
-from fastapi import Depends
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from app.core.database import get_database
-
-def get_product_repository(db: AsyncIOMotorDatabase = Depends(get_database)) -> ProductRepository:
-    return ProductRepository(db["products"])
-
-def get_product_service(
-    repo: ProductRepository = Depends(get_product_repository)
-) -> ProductService:
-    event_publisher = ProductEventPublisher()
-    return ProductService(repo, event_publisher)
-
-# Use in router
-from fastapi import APIRouter, Depends
-from app.services.product_service import ProductService
-from app.dependencies.services import get_product_service
-
-router = APIRouter()
-
-@router.post("/products", status_code=201)
-async def create_product(
-    data: CreateProductRequest,
-    service: ProductService = Depends(get_product_service)
-):
-    product = await service.create_product(data.dict())
-    return product
-```
-
-### 4. Middleware Chain
-
-**Purpose**: Cross-cutting concerns (auth, logging, error handling)
-
-**Implementation**:
-
-```python
-# Middleware applied at app level
-from fastapi import FastAPI
-from app.middleware.correlation_id import CorrelationIdMiddleware
-from app.middleware.logging import LoggingMiddleware
-from app.middleware.error_handler import ErrorHandlerMiddleware
-
-app = FastAPI()
-
-# Global middleware
-app.add_middleware(ErrorHandlerMiddleware)
-app.add_middleware(LoggingMiddleware)
-app.add_middleware(CorrelationIdMiddleware)
-
-# Dependency-based middleware for routes
-from app.dependencies.auth import get_current_user, require_admin
-
-@router.post("/products", dependencies=[Depends(require_admin)])
-async def create_product(
-    data: CreateProductRequest,
-    current_user: User = Depends(get_current_user),
-    service: ProductService = Depends(get_product_service)
-):
-    product = await service.create_product(data.dict())
-    return product
-```
-
-### 5. Event Publisher Pattern
-
-**Purpose**: Decouple event publishing from business logic
-
-**Implementation**:
-
-```python
-from dapr.clients import DaprClient
-from uuid import uuid4
-from datetime import datetime
-from app.models.product import Product
-from app.core.context import get_correlation_id
-
-class ProductEventPublisher:
-    def __init__(self):
-        self.dapr_client = DaprClient()
-        self.pubsub_name = "pubsub"
-        self.topic_name = "product.events"
-
-    async def publish_product_created(self, product: Product) -> None:
-        event = {
-            "eventType": "product.created",
-            "eventId": str(uuid4()),
-            "timestamp": datetime.utcnow().isoformat(),
-            "correlationId": get_correlation_id(),
-            "data": {
-                "productId": str(product.id),
-                "sku": product.sku,
-                "name": product.name,
-                "price": product.price,
-                "status": product.status,
-            }
-        }
-
-        with self.dapr_client:
-            self.dapr_client.publish_event(
-                pubsub_name=self.pubsub_name,
-                topic_name=self.topic_name,
-                data=event
-            )
-```
+| Component               | Purpose                       | Port/Connection          |
+| ----------------------- | ----------------------------- | ------------------------ |
+| MongoDB 8.x             | Persistent storage            | 27017 (configurable)     |
+| Dapr Sidecar            | Pub/sub messaging             | HTTP: 3501, gRPC: 50001  |
+| RabbitMQ (via Dapr)     | Message broker backend        | Abstracted by Dapr       |
+| OpenTelemetry Collector | Distributed tracing & metrics | 4317 (gRPC), 4318 (HTTP) |
 
 ---
 
-## Data Layer
+## 3. Data Architecture
 
-### MongoDB Schema Design
+### 3.1 Entity Relationship Diagram
 
-**Product Pydantic Model** (for validation and serialization):
+```mermaid
+erDiagram
+    products ||--o{ variations : "has"
+    products ||--o{ badges : "has"
+    products ||--|| review_aggregates : "has"
+    products ||--|| availability_status : "has"
 
-```python
-from pydantic import BaseModel, Field
-from typing import Optional, Literal
-from datetime import datetime
-from bson import ObjectId
+    products {
+        ObjectId _id PK
+        string sku UK
+        string name
+        string description
+        float price
+        float compareAtPrice
+        string status
+        object taxonomy
+        string variationType
+        array images
+        array tags
+        object seo
+        datetime createdAt
+        datetime updatedAt
+    }
 
-class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
+    variations {
+        ObjectId _id PK
+        ObjectId parentId FK
+        string sku UK
+        object attributes
+        float price
+        array images
+    }
 
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
+    badges {
+        ObjectId _id PK
+        string type
+        string label
+        int priority
+        datetime expiresAt
+    }
 
-    @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    review_aggregates {
+        float averageRating
+        int totalReviewCount
+        int verifiedReviewCount
+        datetime lastUpdated
+    }
 
-
-class ReviewAggregates(BaseModel):
-    averageRating: float = 0.0
-    totalReviews: int = 0
-    lastUpdated: Optional[datetime] = None
-
-
-class AvailabilityStatus(BaseModel):
-    isAvailable: bool = True
-    stockLevel: Literal["in_stock", "low_stock", "out_of_stock"] = "in_stock"
-    lastChecked: Optional[datetime] = None
-
-
-class Product(BaseModel):
-    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
-    name: str = Field(..., min_length=1, max_length=200)
-    sku: str = Field(..., min_length=1, max_length=50)
-    price: float = Field(..., gt=0)
-    status: Literal["active", "inactive", "draft"] = "active"
-    variationType: Literal["standalone", "parent", "child"] = "standalone"
-    parentId: Optional[str] = None
-
-    # Denormalized data
-    reviewAggregates: ReviewAggregates = Field(default_factory=ReviewAggregates)
-    availabilityStatus: AvailabilityStatus = Field(default_factory=AvailabilityStatus)
-
-    createdAt: Optional[datetime] = None
-    updatedAt: Optional[datetime] = None
-
-    class Config:
-        allow_population_by_field_name = True
-        arbitrary_types_allowed = True
-        json_encoders = {ObjectId: str}
-        schema_extra = {
-            "example": {
-                "name": "Classic T-Shirt",
-                "sku": "TS-BLK-001",
-                "price": 29.99,
-                "status": "active",
-                "variationType": "parent"
-            }
-        }
+    availability_status {
+        string status
+        int availableQuantity
+        datetime lastUpdated
+    }
 ```
 
-**MongoDB Indexes** (created at startup):
+### 3.2 Database Schema
 
-```python
-from motor.motor_asyncio import AsyncIOMotorDatabase
+#### 3.2.1 products Collection
 
-async def create_indexes(db: AsyncIOMotorDatabase):
-    collection = db["products"]
+| Field                | Type     | Constraints             | Description                      |
+| -------------------- | -------- | ----------------------- | -------------------------------- |
+| `_id`                | ObjectId | PK, AUTO                | Primary key                      |
+| `sku`                | String   | UNIQUE, NOT NULL, INDEX | Stock keeping unit               |
+| `name`               | String   | NOT NULL, MAX 200       | Product name                     |
+| `description`        | String   | MAX 5000                | Product description              |
+| `price`              | Float    | NOT NULL, > 0           | Current price                    |
+| `compareAtPrice`     | Float    | >= 0                    | Original price (for discounts)   |
+| `status`             | String   | ENUM                    | active, inactive, draft, deleted |
+| `taxonomy`           | Object   | Embedded                | Department/category/subcategory  |
+| `variationType`      | String   | ENUM                    | standalone, parent, child        |
+| `parentId`           | ObjectId | FK, INDEX               | Reference to parent product      |
+| `images`             | Array    | Embedded                | Product images with URLs         |
+| `tags`               | Array    | INDEX                   | Product tags for filtering       |
+| `badges`             | Array    | Embedded                | Assigned badges                  |
+| `reviewAggregates`   | Object   | Embedded                | Denormalized review data         |
+| `availabilityStatus` | Object   | Embedded                | Denormalized inventory data      |
+| `seo`                | Object   | Embedded                | SEO metadata                     |
+| `createdAt`          | DateTime | AUTO                    | Record creation timestamp        |
+| `updatedAt`          | DateTime | AUTO                    | Last modification timestamp      |
 
-    # Single field indexes
-    await collection.create_index("name")
-    await collection.create_index("sku", unique=True)
-    await collection.create_index("status")
-    await collection.create_index("parentId", sparse=True)
+#### 3.2.2 taxonomy Subdocument
 
-    # Compound indexes
-    await collection.create_index([("status", 1), ("price", 1)])
-    await collection.create_index([("taxonomy.category", 1), ("status", 1)])
+| Field         | Type   | Description                    |
+| ------------- | ------ | ------------------------------ |
+| `department`  | String | Top-level category (e.g., Men) |
+| `category`    | String | Category (e.g., Clothing)      |
+| `subcategory` | String | Subcategory (e.g., T-Shirts)   |
+| `productType` | String | Product type (e.g., Graphic)   |
 
-    # Text index for full-text search
-    await collection.create_index([("name", "text"), ("description", "text")])
-```
+#### 3.2.3 reviewAggregates Subdocument
 
-### Query Patterns
+| Field                 | Type     | Description               |
+| --------------------- | -------- | ------------------------- |
+| `averageRating`       | Float    | Average rating (0-5)      |
+| `totalReviewCount`    | Int      | Total number of reviews   |
+| `verifiedReviewCount` | Int      | Verified purchase reviews |
+| `ratingDistribution`  | Object   | Count per rating (1-5)    |
+| `lastUpdated`         | DateTime | Last update timestamp     |
 
-**Simple Queries**:
+#### 3.2.4 availabilityStatus Subdocument
 
-```python
-# Find by ID
-from bson import ObjectId
+| Field               | Type     | Description                       |
+| ------------------- | -------- | --------------------------------- |
+| `status`            | String   | in_stock, low_stock, out_of_stock |
+| `availableQuantity` | Int      | Current available quantity        |
+| `lastUpdated`       | DateTime | Last update timestamp             |
 
-product = await collection.find_one({"_id": ObjectId(id)})
+### 3.3 Indexes
 
-# Find by SKU
-product = await collection.find_one({"sku": "TS-BLK-001"})
+| Collection | Index Name          | Fields                        | Type     | Purpose               |
+| ---------- | ------------------- | ----------------------------- | -------- | --------------------- |
+| products   | `_id_`              | `_id`                         | B-tree   | Primary key lookup    |
+| products   | `sku_1`             | `sku`                         | Unique   | SKU lookup            |
+| products   | `status_1`          | `status`                      | B-tree   | Status filtering      |
+| products   | `taxonomy_category` | `taxonomy.category`, `status` | Compound | Category browsing     |
+| products   | `text_search`       | `name`, `description`         | Text     | Full-text search      |
+| products   | `parentId_1`        | `parentId`                    | Sparse   | Variation lookup      |
+| products   | `tags_1`            | `tags`                        | B-tree   | Tag-based filtering   |
+| products   | `createdAt_-1`      | `createdAt`                   | B-tree   | Recent products query |
 
-# Find all active products
-cursor = collection.find({"status": "active"}).limit(20)
-products = await cursor.to_list(length=20)
-```
+### 3.4 Caching Strategy
 
-**Complex Queries**:
+> **Current Status:** Caching is **not implemented** in the current codebase.
 
-```python
-# Search with filters and pagination
-cursor = collection.find({
+| Aspect          | Current State           | Future Recommendation                     |
+| --------------- | ----------------------- | ----------------------------------------- |
+| Cache Layer     | Not implemented         | Redis with Dapr State Store               |
+| Product Details | Direct database queries | Cache with 5min TTL, invalidate on update |
+| Search Results  | Direct database queries | Cache with 1min TTL                       |
+| Categories      | Direct database queries | Cache with 1hr TTL                        |
+
+### 3.5 Database Configuration
+
+Database connection is configured via environment variables.
+
+**Connection String Format:** `mongodb://{user}:{password}@{host}:{port}/{database}`
+
+---
+
+## 4. API Design
+
+### 4.1 Endpoint Summary
+
+| Method   | Endpoint                                       | Description                     | Auth      |
+| -------- | ---------------------------------------------- | ------------------------------- | --------- |
+| `GET`    | `/health`                                      | Liveness probe                  | None      |
+| `GET`    | `/health/ready`                                | Readiness probe                 | None      |
+| `GET`    | `/api/products`                                | List products with filters      | None      |
+| `GET`    | `/api/products/{id}`                           | Get product by ID               | None      |
+| `GET`    | `/api/products/categories`                     | Get all categories              | None      |
+| `GET`    | `/api/products/internal/{id}/exists`           | Check product existence         | None      |
+| `POST`   | `/api/products/batch`                          | Batch product lookup            | None      |
+| `GET`    | `/api/products/{id}/variations`                | Get product variations          | None      |
+| `GET`    | `/api/products/search`                         | Search (offset pagination)      | None      |
+| `GET`    | `/api/products/search/cursor`                  | Search (cursor pagination)      | None      |
+| `GET`    | `/api/products/category/{path}`                | Get products by category        | None      |
+| `GET`    | `/api/products/autocomplete`                   | Autocomplete suggestions        | None      |
+| `GET`    | `/api/products/trending`                       | Get trending products           | None      |
+| `POST`   | `/api/admin/products`                          | Create product                  | Admin JWT |
+| `PUT`    | `/api/admin/products/{id}`                     | Update product                  | Admin JWT |
+| `DELETE` | `/api/admin/products/{id}`                     | Delete product (soft)           | Admin JWT |
+| `PATCH`  | `/api/admin/products/{id}/reactivate`          | Reactivate soft-deleted product | Admin JWT |
+| `POST`   | `/api/admin/products/variations`               | Create parent with variations   | Admin JWT |
+| `POST`   | `/api/admin/products/{id}/variations`          | Add variation to parent         | Admin JWT |
+| `POST`   | `/api/admin/products/{id}/badges`              | Assign badge to product         | Admin JWT |
+| `DELETE` | `/api/admin/products/{id}/badges/{badgeId}`    | Remove badge from product       | Admin JWT |
+| `POST`   | `/api/admin/products/badges/bulk`              | Bulk badge assignment           | Admin JWT |
+| `PUT`    | `/api/admin/products/{id}/seo`                 | Update SEO metadata             | Admin JWT |
+| `POST`   | `/api/admin/products/bulk/import`              | Bulk import (async)             | Admin JWT |
+| `GET`    | `/api/admin/products/bulk/jobs/{jobId}`        | Get bulk import status          | Admin JWT |
+| `GET`    | `/api/admin/products/bulk/template`            | Download import template        | Admin JWT |
+| `GET`    | `/api/admin/products/bulk/jobs/{jobId}/errors` | Get bulk import errors          | Admin JWT |
+| `POST`   | `/api/admin/products/bulk/images`              | Bulk image upload (ZIP)         | Admin JWT |
+| `GET`    | `/api/admin/products/stats`                    | Get product statistics          | Admin JWT |
+
+**Authentication Types:**
+
+- **None**: Public endpoints (health checks, product discovery)
+- **Admin JWT**: Admin operations requiring `role: admin` in JWT
+
+### 4.2 Request/Response Specifications
+
+#### 4.2.1 Get Product by ID
+
+**Endpoint:** `GET /api/products/{id}`
+
+**Authentication:** None (public endpoint)
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "507f1f77bcf86cd799439011",
+    "sku": "TS-BLK-001",
+    "name": "Classic Black T-Shirt",
+    "description": "Premium cotton t-shirt",
+    "price": 29.99,
+    "compareAtPrice": 39.99,
     "status": "active",
-    "taxonomy.category": "Clothing",
-    "price": {"$gte": 20, "$lte": 50}
-}).sort("createdAt", -1).skip(page * limit).limit(limit)
-
-products = await cursor.to_list(length=limit)
-
-# Aggregation for statistics
-pipeline = [
-    {"$match": {"status": "active"}},
-    {
-        "$group": {
-            "_id": "$taxonomy.category",
-            "count": {"$sum": 1},
-            "avgPrice": {"$avg": "$price"},
-            "minPrice": {"$min": "$price"},
-            "maxPrice": {"$max": "$price"}
-        }
+    "taxonomy": {
+      "department": "Men",
+      "category": "Clothing",
+      "subcategory": "T-Shirts"
+    },
+    "images": [{ "url": "https://...", "alt": "Front view" }],
+    "reviewAggregates": {
+      "averageRating": 4.5,
+      "totalReviewCount": 128
+    },
+    "availabilityStatus": {
+      "status": "in_stock",
+      "availableQuantity": 50
     }
-]
-
-cursor = collection.aggregate(pipeline)
-stats = await cursor.to_list(length=None)
+  }
+}
 ```
 
-**Variation Queries**:
+#### 4.2.2 Create Product (Admin)
 
-```python
-# Get all variations of a parent product
-cursor = collection.find({"parentId": parent_id})
-variations = await cursor.to_list(length=None)
+**Endpoint:** `POST /api/admin/products`
 
-# Get parent from child
-child = await collection.find_one({"_id": ObjectId(child_id)})
-if child and child.get("parentId"):
-    parent = await collection.find_one({"_id": ObjectId(child["parentId"])})
+**Authentication:** Admin JWT Required
+
+**Request Body:**
+
+```json
+{
+  "sku": "TS-BLK-002",
+  "name": "Premium Black T-Shirt",
+  "description": "Ultra-soft premium cotton",
+  "price": 34.99,
+  "taxonomy": {
+    "department": "Men",
+    "category": "Clothing",
+    "subcategory": "T-Shirts"
+  },
+  "tags": ["cotton", "premium", "casual"]
+}
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "success": true,
+  "message": "Product created successfully",
+  "data": {
+    "id": "507f1f77bcf86cd799439012",
+    "sku": "TS-BLK-002",
+    "name": "Premium Black T-Shirt",
+    "status": "active",
+    "createdAt": "2025-01-24T10:30:00Z"
+  }
+}
+```
+
+#### 4.2.3 Search Products
+
+**Endpoint:** `GET /api/products/search`
+
+**Query Parameters:**
+
+| Parameter  | Type    | Required | Default   | Description              |
+| ---------- | ------- | -------- | --------- | ------------------------ |
+| `q`        | string  | No       | -         | Search query             |
+| `category` | string  | No       | -         | Category filter          |
+| `minPrice` | float   | No       | -         | Minimum price            |
+| `maxPrice` | float   | No       | -         | Maximum price            |
+| `page`     | integer | No       | 1         | Page number              |
+| `limit`    | integer | No       | 20        | Items per page (max 100) |
+| `sort`     | string  | No       | relevance | Sort order               |
+
+**Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "products": [...],
+    "pagination": {
+      "page": 1,
+      "limit": 20,
+      "total": 150,
+      "pages": 8
+    }
+  }
+}
+```
+
+### 4.3 Error Response Format
+
+All API errors return a consistent JSON structure:
+
+```json
+{
+  "success": false,
+  "error": "ERROR_CODE",
+  "message": "Human-readable error description",
+  "details": {},
+  "correlationId": "req-abc-123-def-456",
+  "timestamp": "2025-01-24T10:30:00Z"
+}
+```
+
+### 4.4 Error Code Reference
+
+| Code                    | HTTP Status | Description                   |
+| ----------------------- | ----------- | ----------------------------- |
+| `VALIDATION_ERROR`      | 400         | Request validation failed     |
+| `DUPLICATE_SKU`         | 409         | SKU already exists            |
+| `PRODUCT_NOT_FOUND`     | 404         | Product does not exist        |
+| `UNAUTHORIZED`          | 401         | Missing or invalid JWT        |
+| `FORBIDDEN`             | 403         | Admin role required           |
+| `INVALID_CATEGORY`      | 400         | Invalid taxonomy category     |
+| `BULK_IMPORT_FAILED`    | 400         | Bulk import validation failed |
+| `INTERNAL_SERVER_ERROR` | 500         | Unexpected server error       |
+
+### 4.5 Authentication
+
+> **Complete Details:** See **Section 10 - Security** for comprehensive authentication documentation.
+
+**Quick Reference:**
+
+| Auth Type | Header                        | Used By                   |
+| --------- | ----------------------------- | ------------------------- |
+| None      | -                             | Health, product discovery |
+| Admin JWT | `Authorization: Bearer <jwt>` | Admin operations          |
+
+---
+
+## 5. Event Architecture
+
+Product Service participates in the xshopai event-driven architecture as both a **Publisher** and **Consumer** via **Dapr Pub/Sub**.
+
+### 5.1 Event Summary
+
+#### Published Events
+
+| Event Name               | Trigger          | Primary Consumer(s)         | Priority |
+| ------------------------ | ---------------- | --------------------------- | -------- |
+| `product.created`        | Product creation | Audit, Search Service       | High     |
+| `product.updated`        | Product update   | Audit, Search Service       | Medium   |
+| `product.deleted`        | Product deletion | Audit, Search, Cart Service | High     |
+| `product.price.changed`  | Price change     | Cart Service, Notification  | High     |
+| `product.badge.assigned` | Badge added      | Audit Service               | Low      |
+| `product.badge.removed`  | Badge removed    | Audit Service               | Low      |
+
+#### Subscribed Events
+
+| Event Name                | Source            | Purpose                    |
+| ------------------------- | ----------------- | -------------------------- |
+| `review.created`          | Review Service    | Update review aggregates   |
+| `review.updated`          | Review Service    | Update review aggregates   |
+| `review.deleted`          | Review Service    | Update review aggregates   |
+| `inventory.stock.updated` | Inventory Service | Update availability status |
+
+---
+
+### 5.2 Published Events
+
+All events use **CloudEvents 1.0** envelope with `source: "product-service"`.
+
+#### 5.2.1 product.created
+
+**Trigger:** New product creation
+
+**Payload:**
+
+```json
+{
+  "specversion": "1.0",
+  "type": "product.created",
+  "source": "product-service",
+  "id": "evt-550e8400-e29b-41d4-a716-446655440000",
+  "time": "2025-01-24T10:30:00Z",
+  "datacontenttype": "application/json",
+  "data": {
+    "productId": "507f1f77bcf86cd799439011",
+    "sku": "TS-BLK-001",
+    "name": "Classic Black T-Shirt",
+    "price": 29.99,
+    "status": "active",
+    "category": "Clothing"
+  },
+  "metadata": {
+    "correlationId": "req-xyz-789"
+  }
+}
+```
+
+#### 5.2.2 product.updated
+
+**Trigger:** Product information changed
+
+**Payload:**
+
+```json
+{
+  "specversion": "1.0",
+  "type": "product.updated",
+  "source": "product-service",
+  "id": "evt-660e8400-e29b-41d4-a716-446655440001",
+  "time": "2025-01-24T11:00:00Z",
+  "data": {
+    "productId": "507f1f77bcf86cd799439011",
+    "updatedFields": ["price", "description"],
+    "updatedAt": "2025-01-24T11:00:00Z"
+  }
+}
 ```
 
 ---
 
-## Event-Driven Architecture
+### 5.3 Subscribed Events
 
-### Event Publishing (Outbound)
+Product Service consumes events to maintain denormalized data.
 
-**Dapr Pub/Sub Configuration**:
+#### 5.3.1 Review Events
 
-```python
-# Initialize Dapr client
-from dapr.clients import DaprClient
-import os
+**Events:** `review.created`, `review.updated`, `review.deleted`
 
-class DaprClientSingleton:
-    _instance = None
-    _client = None
+**Purpose:** Update `reviewAggregates` subdocument
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._client = DaprClient()
-        return cls._instance
+**Processing:**
 
-    def get_client(self):
-        return self._client
+- Recalculate average rating
+- Update review count
+- Update rating distribution
 
-# Publish event
-from uuid import uuid4
-from datetime import datetime
-from app.core.context import get_correlation_id
+#### 5.3.2 Inventory Events
 
-async def publish_product_created_event(product: dict) -> None:
-    dapr_client = DaprClientSingleton().get_client()
+**Events:** `inventory.stock.updated`
 
-    event = {
-        "eventType": "product.created",
-        "eventId": str(uuid4()),
-        "timestamp": datetime.utcnow().isoformat(),
-        "correlationId": get_correlation_id(),
-        "data": {
-            "productId": str(product["_id"]),
-            "sku": product["sku"],
-            "name": product["name"],
-            "price": product["price"],
-            "status": product["status"],
-            "category": product.get("taxonomy", {}).get("category")
-        }
-    }
+**Purpose:** Update `availabilityStatus` subdocument
 
-    with dapr_client:
-        dapr_client.publish_event(
-            pubsub_name="pubsub",  # Pub/sub component name (from dapr.yaml)
-            topic_name="product.events",  # Topic name
-            data=event
-        )
-```
+**Processing:**
 
-**Published Events**:
-
-1. `product.created` - New product created
-2. `product.updated` - Product modified
-3. `product.deleted` - Product soft-deleted
-4. `product.price.changed` - Price updated
-5. `product.back.in.stock` - Out-of-stock product back in stock
-6. `product.badge.assigned` - Badge added to product
-7. `product.badge.removed` - Badge removed from product
-
-### Event Consumption (Inbound)
-
-**Dapr Subscription Setup**:
-
-```python
-# FastAPI endpoints for Dapr subscriptions
-from fastapi import FastAPI, Request
-from app.services.product_service import ProductService
-
-app = FastAPI()
-
-# Dapr subscription endpoint
-@app.get("/dapr/subscribe")
-async def subscribe():
-    return [
-        {
-            "pubsubname": "pubsub",
-            "topic": "review.events",
-            "route": "/events/review"
-        },
-        {
-            "pubsubname": "pubsub",
-            "topic": "inventory.events",
-            "route": "/events/inventory"
-        },
-        {
-            "pubsubname": "pubsub",
-            "topic": "analytics.events",
-            "route": "/events/analytics"
-        }
-    ]
-
-# Handle review events
-@app.post("/events/review")
-async def handle_review_event(request: Request):
-    event_data = await request.json()
-    event = event_data.get("data", {})
-
-    if event.get("eventType") in ["review.created", "review.updated"]:
-        product_service = ProductService()
-        await product_service.update_review_aggregates(
-            event["data"]["productId"],
-            event["data"]["aggregates"]
-        )
-
-    return {"status": "SUCCESS"}  # Acknowledge to Dapr
-```
-
-**Consumed Events**:
-
-1. `review.created`, `review.updated`, `review.deleted` → Update review aggregates
-2. `inventory.stock.updated`, `inventory.reserved`, `inventory.released` → Update availability status
-3. `analytics.product.sales.updated` → Update sales metrics for badge automation
-4. `product.question.created`, `product.answer.created` → Update Q&A counts
-
-### Event Processing Strategy
-
-**Idempotency**:
-
-```python
-# Use event ID to prevent duplicate processing
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime
-
-async def handle_review_event(event: dict, db: AsyncIOMotorDatabase) -> None:
-    processed_events = db["processed_events"]
-    event_id = event.get("eventId")
-
-    # Check if already processed
-    existing = await processed_events.find_one({"eventId": event_id})
-    if existing:
-        logger.info(f"Event already processed: {event_id}")
-        return  # Skip duplicate
-
-    # Process event
-    product_service = ProductService()
-    await product_service.update_review_aggregates(
-        event["data"]["productId"],
-        event["data"]["aggregates"]
-    )
-
-    # Mark as processed
-    await processed_events.insert_one({
-        "eventId": event_id,
-        "processedAt": datetime.utcnow()
-    })
-```
-
-**Retry Strategy**:
-
-- Dapr automatically retries failed events (configurable)
-- Max retries: 3
-- Backoff: Exponential (1s, 2s, 4s)
-- Dead Letter Queue: Failed events after max retries
+- Update available quantity
+- Set status (in_stock, low_stock, out_of_stock)
 
 ---
 
-### Service-to-Service Communication (Dapr Service Invocation)
+### 5.4 Dapr Configuration
 
-Product Service can be called by other internal services using **Dapr Service Invocation** building block for synchronous request-response patterns.
+#### 5.4.1 Pub/Sub Component (RabbitMQ)
 
-#### Architecture Pattern
-
-```
-┌─────────────────┐                    ┌─────────────────┐
-│  Order Service  │                    │ Product Service │
-│  + Dapr Sidecar │                    │  + Dapr Sidecar │
-└────────┬────────┘                    └────────▲────────┘
-         │                                      │
-         │ 1. Invoke product-service           │
-         │    GET /products/{id}               │
-         ▼                                      │
-┌──────────────────────┐              ┌──────────────────────┐
-│ Dapr Runtime (Order) │──── HTTP ───►│ Dapr Runtime (Prod)  │
-│ Service Invocation   │              │ Service Invocation   │
-└──────────────────────┘              └──────────────────────┘
-         │                                      │
-         │ 2. Service Discovery                 │ 3. Forward to App
-         │    (find product-service)            │    localhost:8003
-         │                                      │
-         └──────────────────────────────────────┘
-                    4. Return Response
-```
-
-#### Inbound Service Invocation (Product Service as Receiver)
-
-**Callers**: order-service, cart-service, recommendation-service, etc.
-
-**Endpoints exposed for service invocation**:
-
-```python
-# app/api/v1/products.py
-from fastapi import APIRouter, Depends, HTTPException
-from app.services.product_service import ProductService
-
-router = APIRouter()
-
-# Called by order-service to validate products in order
-@router.get("/products/{product_id}")
-async def get_product(
-    product_id: str,
-    product_service: ProductService = Depends(get_product_service)
-):
-    """
-    Get product details by ID.
-    Used by other services for product validation and information.
-    """
-    product = await product_service.get_by_id(product_id)
-
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    return {"success": True, "data": product}
-
-# Called by cart-service to check inventory
-@router.post("/products/check-availability")
-async def check_availability(
-    product_ids: list[str],
-    product_service: ProductService = Depends(get_product_service)
-):
-    """
-    Check if products are available and active.
-    Used by cart-service before adding items.
-    """
-    results = await product_service.check_bulk_availability(product_ids)
-    return {"success": True, "data": results}
-```
-
-**Note**: No special code changes needed in product-service. Dapr handles the invocation transparently.
-
-#### Outbound Service Invocation (Product Service as Caller)
-
-**Future Use Case**: If product-service needs to call other services (not currently implemented)
-
-```python
-# Example: Call inventory-service to check stock (hypothetical)
-from dapr.clients import DaprClient
-import json
-
-async def check_inventory_stock(product_id: str, quantity: int) -> dict:
-    """Call inventory-service via Dapr service invocation."""
-    try:
-        with DaprClient() as dapr:
-            response = dapr.invoke_method(
-                app_id='inventory-service',  # Target service app-id
-                method_name='inventory/check',  # Endpoint path
-                data=json.dumps({
-                    'productId': product_id,
-                    'quantity': quantity
-                }),
-                http_verb='POST'
-            )
-
-            return json.loads(response.data)
-    except Exception as e:
-        logger.error(f"Failed to check inventory via Dapr: {e}")
-        raise
-```
-
-#### Benefits of Dapr Service Invocation
-
-1. **Service Discovery**: No need to hard-code URLs (e.g., `http://product-service:8003`)
-2. **mTLS**: Automatic mutual TLS encryption between services
-3. **Retries**: Built-in retry logic with exponential backoff
-4. **Timeouts**: Configurable timeout handling
-5. **Observability**: Distributed tracing via OpenTelemetry
-6. **Resiliency**: Circuit breakers and bulkheads
-7. **Load Balancing**: Automatic load distribution across instances
-
-#### Configuration
-
-**Dapr Sidecar**:
+File: `.dapr/components/pubsub.yaml`
 
 ```yaml
-# components/pubsub.yaml (already configured)
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: product-pubsub
+  name: xshopai-pubsub
 spec:
   type: pubsub.rabbitmq
-  # ...
-```
-
-**No additional configuration needed** for service invocation - it works out of the box with Dapr sidecars.
-
-#### Service Invocation vs Pub/Sub
-
-| Pattern                | Use Case                        | Example                                                  |
-| ---------------------- | ------------------------------- | -------------------------------------------------------- |
-| **Service Invocation** | Synchronous request-response    | order-service → product-service (GET /products/{id})     |
-| **Pub/Sub**            | Asynchronous event notification | product-service → search-service (product.created event) |
-
-**When to use Service Invocation**:
-
-- Need immediate response
-- Direct service dependency is acceptable
-- CRUD operations (GET, POST, PUT, DELETE)
-- Validation/authorization checks
-
-**When to use Pub/Sub**:
-
-- Fire-and-forget notifications
-- Multiple consumers for same event
-- Decoupled architecture
-- Event-driven workflows
-
----
-
-## API Layer
-
-### REST Endpoints
-
-**Product CRUD**:
-
-```python
-# Create product
-POST /api/products
-Authorization: Bearer <admin-jwt>
-Body: { "name": "...", "sku": "...", "price": 29.99, ... }
-Response: 201 Created
-
-# Get product by ID
-GET /api/products/{id}
-Response: 200 OK
-
-# Update product
-PUT /api/products/{id}
-Authorization: Bearer <admin-jwt>
-Body: { "price": 39.99, "status": "active", ... }
-Response: 200 OK
-
-# Delete product (soft delete)
-DELETE /api/products/{id}
-Authorization: Bearer <admin-jwt>
-Response: 204 No Content
-```
-
-**Search & Filter**:
-
-```python
-# Search products
-GET /api/products?search=cotton&category=Clothing&minPrice=20&maxPrice=50&page=1&limit=20
-Response: 200 OK { "products": [...], "pagination": {...} }
-
-# Get variations
-GET /api/products/{parent_id}/variations?page=1&limit=50
-Response: 200 OK { "variations": [...] }
-```
-
-**Admin Operations**:
-
-```python
-# Get statistics
-GET /api/admin/products/statistics
-Authorization: Bearer <admin-jwt>
-Response: 200 OK { "totalProducts": 150, "byCategory": {...}, ... }
-
-# Bulk import
-POST /api/admin/products/bulk/import
-Authorization: Bearer <admin-jwt>
-Body: { "products": [...] }
-Response: 202 Accepted { "jobId": "job-123" }
-
-# Check bulk import status
-GET /api/admin/products/bulk/status/{job_id}
-Authorization: Bearer <admin-jwt>
-Response: 200 OK { "status": "processing", "progress": 45 }
-```
-
-### FastAPI Router Implementation
-
-```python
-from fastapi import APIRouter, Depends, Query
-from typing import Optional
-from app.dependencies.auth import get_current_user, require_admin
-from app.services.product_service import ProductService
-from app.schemas.product_request import CreateProductRequest, UpdateProductRequest
-from app.schemas.product_response import ProductResponse
-
-router = APIRouter(prefix="/api/products", tags=["products"])
-
-@router.post("", status_code=201, response_model=ProductResponse, dependencies=[Depends(require_admin)])
-async def create_product(
-    data: CreateProductRequest,
-    service: ProductService = Depends(get_product_service)
-):
-    product = await service.create_product(data.dict())
-    return product
-
-@router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(
-    product_id: str,
-    service: ProductService = Depends(get_product_service)
-):
-    product = await service.get_product_by_id(product_id)
-    if not product:
-        raise ProductNotFoundError(product_id)
-    return product
-
-@router.get("", response_model=List[ProductResponse])
-async def search_products(
-    search: Optional[str] = Query(None),
-    category: Optional[str] = Query(None),
-    min_price: Optional[float] = Query(None, alias="minPrice"),
-    max_price: Optional[float] = Query(None, alias="maxPrice"),
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    service: ProductService = Depends(get_product_service)
-):
-    products = await service.search_products(
-        filters={"search": search, "category": category, "minPrice": min_price, "maxPrice": max_price},
-        page=page,
-        limit=limit
-    )
-    return products
-```
-
-### Middleware Execution Order
-
-```
-1. CorrelationIdMiddleware     → Generate/propagate X-Correlation-ID
-2. LoggingMiddleware (request) → Log incoming request
-3. ErrorHandlerMiddleware      → Catch and format errors (outermost)
-4. [Dependencies]              → JWT validation, RBAC check
-5. [ROUTER FUNCTION]           → Execute business logic
-6. LoggingMiddleware (response)→ Log response
+  version: v1
+  metadata:
+    - name: connectionString
+      value: 'amqp://guest:guest@127.0.0.1:5672'
+    - name: durable
+      value: 'true'
+    - name: deliveryMode
+      value: '2'
+scopes:
+  - product-service
 ```
 
 ---
 
-## Error Handling
+### 5.5 Messaging Abstraction Layer
 
-### Error Hierarchy
+To support **deployment flexibility**, the Product Service implements a messaging abstraction layer.
 
-```python
-# Base error class
-from fastapi import HTTPException
+| Deployment Target          | Dapr Available | Recommended Provider |
+| -------------------------- | -------------- | -------------------- |
+| **Azure Container Apps**   | ✅ Yes         | `DaprProvider`       |
+| **Azure Kubernetes (AKS)** | ✅ Yes         | `DaprProvider`       |
+| **Local Development**      | ✅ Optional    | `DaprProvider`       |
 
-class AppError(HTTPException):
-    def __init__(self, message: str, status_code: int, error_code: str, details: dict = None):
-        self.message = message
-        self.status_code = status_code
-        self.error_code = error_code
-        self.details = details or {}
-        super().__init__(status_code=status_code, detail=message)
+---
 
+## 6. Configuration
 
-# Domain-specific errors
-class ProductNotFoundError(AppError):
-    def __init__(self, product_id: str):
-        super().__init__(
-            message=f"Product with ID {product_id} not found",
-            status_code=404,
-            error_code="PRODUCT_NOT_FOUND"
-        )
+### 6.1 Environment Variables
 
+| Variable           | Description                 | Required | Default          |
+| ------------------ | --------------------------- | -------- | ---------------- |
+| `ENVIRONMENT`      | Environment mode            | No       | `development`    |
+| `PORT`             | Service port                | No       | `8001`           |
+| `HOST`             | Service host                | No       | `0.0.0.0`        |
+| `LOG_LEVEL`        | Logging level               | No       | `INFO`           |
+| `DAPR_HOST`        | Dapr sidecar host           | No       | `localhost`      |
+| `DAPR_HTTP_PORT`   | Dapr HTTP port              | No       | `3501`           |
+| `DAPR_GRPC_PORT`   | Dapr gRPC port              | No       | `50001`          |
+| `DAPR_PUBSUB_NAME` | Dapr pub/sub component name | No       | `xshopai-pubsub` |
 
-class DuplicateSkuError(AppError):
-    def __init__(self, sku: str, existing_product_id: str = None):
-        super().__init__(
-            message=f"Product with SKU '{sku}' already exists",
-            status_code=400,
-            error_code="DUPLICATE_SKU",
-            details={"sku": sku, "existingProductId": existing_product_id}
-        )
+#### MongoDB Configuration
 
+| Variable           | Description       | Example                     |
+| ------------------ | ----------------- | --------------------------- |
+| `MONGODB_URI`      | Connection string | `mongodb://localhost:27017` |
+| `MONGODB_DATABASE` | Database name     | `product_service_db`        |
 
-class ValidationError(AppError):
-    def __init__(self, fields: list):
-        super().__init__(
-            message="Validation failed",
-            status_code=400,
-            error_code="VALIDATION_ERROR",
-            details={"fields": fields}
-        )
-```
+### 6.2 Messaging Provider Configuration
 
-### Global Error Handler
+| Variable           | Description            | Required           |
+| ------------------ | ---------------------- | ------------------ |
+| `DAPR_HTTP_PORT`   | Dapr sidecar HTTP port | No (default: 3501) |
+| `DAPR_PUBSUB_NAME` | Pub/sub component name | Yes                |
 
-```python
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from app.core.logger import logger
-from app.core.context import get_correlation_id
-from datetime import datetime
+---
 
-app = FastAPI()
+## 7. Deployment
 
-@app.exception_handler(AppError)
-async def app_error_handler(request: Request, exc: AppError):
-    correlation_id = get_correlation_id()
+### 7.1 Deployment Targets
 
-    # Log error
-    logger.error(f"Request failed: {exc.message}", extra={
-        "correlationId": correlation_id,
-        "errorCode": exc.error_code,
-        "statusCode": exc.status_code,
-        "details": exc.details
-    })
+| Target                 | Messaging Provider | Notes                           |
+| ---------------------- | ------------------ | ------------------------------- |
+| Local (Docker Compose) | `dapr`             | Uses Dapr sidecar with RabbitMQ |
+| Azure Container Apps   | `dapr`             | Managed Dapr integration        |
+| AKS                    | `dapr`             | Self-managed Dapr               |
 
-    # Send error response (no stack trace to client)
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": {
-                "code": exc.error_code,
-                "message": exc.message,
-                "statusCode": exc.status_code,
-                "correlationId": correlation_id,
-                "timestamp": datetime.utcnow().isoformat(),
-                "details": exc.details
-            }
-        }
-    )
+---
 
+## 8. Observability
 
-@app.exception_handler(Exception)
-async def generic_error_handler(request: Request, exc: Exception):
-    correlation_id = get_correlation_id()
+### 8.1 Distributed Tracing
 
-    # Log unexpected error with stack trace
-    logger.exception("Unexpected error occurred", extra={
-        "correlationId": correlation_id,
-        "error": str(exc)
-    })
+Every request and event carries a correlation ID for end-to-end tracing.
 
-    # Send generic error response
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": {
-                "code": "INTERNAL_ERROR",
-                "message": "Internal server error",
-                "statusCode": 500,
-                "correlationId": correlation_id,
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        }
-    )
+| Header             | Description            | Example                            |
+| ------------------ | ---------------------- | ---------------------------------- |
+| `X-Correlation-ID` | Request correlation ID | `req-abc-123-def-456`              |
+| `X-Trace-ID`       | Distributed trace ID   | `0af7651916cd43dd8448eb211c80319c` |
+
+---
+
+### 8.2 Structured Logging
+
+All logs use JSON structured format:
+
+```json
+{
+  "timestamp": "2025-01-24T10:30:00.123Z",
+  "level": "info",
+  "service": "product-service",
+  "correlationId": "req-abc-123",
+  "message": "Product created successfully",
+  "metadata": {
+    "productId": "507f1f77bcf86cd799439011",
+    "sku": "TS-BLK-001"
+  }
+}
 ```
 
 ---
 
-## Caching Strategy
+### 8.3 Metrics & Alerting
 
-### Read-Through Cache (Future Enhancement)
+#### Business Metrics
 
-**Current State**: No caching (direct MongoDB queries)
+| Metric Name                | Type    | Description         |
+| -------------------------- | ------- | ------------------- |
+| `products_total`           | Gauge   | Total product count |
+| `products_created_total`   | Counter | Products created    |
+| `products_deleted_total`   | Counter | Products deleted    |
+| `product_events_published` | Counter | Events published    |
 
-**Planned**: Redis caching for frequently accessed products
+#### Technical Metrics
 
-```python
-import redis.asyncio as redis
-import json
-
-# Cache configuration
-CACHE_TTL = 5 * 60  # 5 minutes
-
-# Redis client
-redis_client = redis.Redis(host='localhost', port=6379, decode_responses=True)
-
-# Cache key pattern
-def get_cache_key(product_id: str) -> str:
-    return f"product:{product_id}"
-
-# Read-through cache
-async def get_product_by_id(id: str) -> dict:
-    # 1. Check cache
-    cache_key = get_cache_key(id)
-    cached = await redis_client.get(cache_key)
-    if cached:
-        return json.loads(cached)
-
-    # 2. Query database
-    product = await collection.find_one({"_id": ObjectId(id)})
-    if not product:
-        return None
-
-    # 3. Store in cache
-    await redis_client.setex(cache_key, CACHE_TTL, json.dumps(product, default=str))
-    return product
-
-# Cache invalidation on update
-async def update_product(id: str, data: dict) -> dict:
-    product = await collection.find_one_and_update(
-        {"_id": ObjectId(id)},
-        {"$set": data},
-        return_document=True
-    )
-
-    # Invalidate cache
-    await redis_client.delete(get_cache_key(id))
-    return product
-```
+| Metric Name                | Type      | Description         |
+| -------------------------- | --------- | ------------------- |
+| `http_requests_total`      | Counter   | HTTP requests count |
+| `http_request_duration_ms` | Histogram | Request latency     |
+| `db_query_duration_ms`     | Histogram | DB query latency    |
 
 ---
 
-## Testing Strategy
+## 9. Error Handling
 
-### Test Pyramid
+### 9.1 Error Response Format
 
-```
-      ┌─────────┐
-      │   E2E   │  10% (Full user workflows)
-      └─────────┘
-    ┌─────────────┐
-    │ Integration │  30% (API endpoints + DB)
-    └─────────────┘
-  ┌─────────────────┐
-  │      Unit       │  60% (Services, utils, pure logic)
-  └─────────────────┘
-```
+All API errors return a consistent structure:
 
-### Unit Tests (Pytest)
-
-**Example: Product Service**:
-
-```python
-import pytest
-from unittest.mock import AsyncMock, Mock
-from app.services.product_service import ProductService
-from app.utils.errors import DuplicateSkuError
-
-@pytest.fixture
-def mock_repo():
-    return Mock(
-        create=AsyncMock(),
-        find_by_sku=AsyncMock()
-    )
-
-@pytest.fixture
-def mock_publisher():
-    return Mock(publish_product_created=AsyncMock())
-
-@pytest.fixture
-def product_service(mock_repo, mock_publisher):
-    return ProductService(mock_repo, mock_publisher)
-
-
-class TestProductService:
-    @pytest.mark.asyncio
-    async def test_create_product_success(self, product_service, mock_repo, mock_publisher):
-        # Arrange
-        product_data = {"name": "Test Product", "sku": "TEST-001", "price": 29.99}
-        created_product = {**product_data, "_id": "123"}
-
-        mock_repo.find_by_sku.return_value = None  # No duplicate
-        mock_repo.create.return_value = created_product
-
-        # Act
-        result = await product_service.create_product(product_data)
-
-        # Assert
-        assert result == created_product
-        mock_publisher.publish_product_created.assert_called_once_with(created_product)
-
-    @pytest.mark.asyncio
-    async def test_create_product_duplicate_sku(self, product_service, mock_repo):
-        # Arrange
-        mock_repo.find_by_sku.return_value = {"sku": "TEST-001"}
-
-        # Act & Assert
-        with pytest.raises(DuplicateSkuError):
-            await product_service.create_product({"sku": "TEST-001", "name": "Test", "price": 10})
+```json
+{
+  "success": false,
+  "error": "PRODUCT_NOT_FOUND",
+  "message": "Product not found",
+  "correlationId": "req-abc-123-def-456",
+  "timestamp": "2025-01-24T10:30:00Z"
+}
 ```
 
-### Integration Tests (httpx + mongomock)
+**Error Categories:**
 
-**Example: Product API**:
-
-```python
-import pytest
-from httpx import AsyncClient
-from mongomock_motor import AsyncMongoMockClient
-from app.main import app
-from app.core.database import get_database
-
-@pytest.fixture
-async def mock_db():
-    client = AsyncMongoMockClient()
-    db = client["test_db"]
-    return db
-
-@pytest.fixture
-async def test_client(mock_db):
-    app.dependency_overrides[get_database] = lambda: mock_db
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        yield client
-    app.dependency_overrides.clear()
-
-@pytest.fixture
-def admin_token():
-    return generate_test_token({"role": "admin"})
-
-
-class TestProductAPI:
-    @pytest.mark.asyncio
-    async def test_create_product_success(self, test_client, admin_token):
-        # Arrange
-        product_data = {
-            "name": "Test Product",
-            "sku": "TEST-001",
-            "price": 29.99,
-            "status": "active"
-        }
-
-        # Act
-        response = await test_client.post(
-            "/api/products",
-            json=product_data,
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-
-        # Assert
-        assert response.status_code == 201
-        assert response.json()["name"] == "Test Product"
-        assert response.json()["sku"] == "TEST-001"
-
-    @pytest.mark.asyncio
-    async def test_create_product_unauthorized(self, test_client):
-        # Act
-        response = await test_client.post(
-            "/api/products",
-            json={"name": "Test", "sku": "TEST", "price": 10}
-        )
-
-        # Assert
-        assert response.status_code == 401
-```
-
-### Test Coverage Goals
-
-- **Overall**: 80% code coverage
-- **Services**: 90% (critical business logic)
-- **Routers**: 80% (API endpoints)
-- **Repositories**: 70% (data access)
-- **Utils**: 85% (pure functions)
+| HTTP Status | Category       | Retryable |
+| ----------- | -------------- | --------- |
+| 400         | Client Error   | No        |
+| 401         | Authentication | No        |
+| 403         | Authorization  | No        |
+| 404         | Not Found      | No        |
+| 409         | Conflict       | No        |
+| 500         | Server Error   | Yes       |
 
 ---
 
-## Performance Optimization
+## 10. Security
 
-### Database Optimization
+### 10.1 Authentication
 
-1. **Indexes**: Created on frequently queried fields (SKU, status, category, parentId)
-2. **Projection**: Only select needed fields in queries
-3. **Pagination**: Limit result set size (default: 20 items)
-4. **Aggregation Pipeline**: Use MongoDB aggregation for complex queries
+Product Service uses a **layered authentication model**.
 
-### Query Optimization Examples
+| Auth Type | Purpose                  | Used By          |
+| --------- | ------------------------ | ---------------- |
+| None      | Public product discovery | Customer UI      |
+| Admin JWT | Admin operations         | Admin UI via BFF |
 
-```python
-# ❌ Bad: Select all fields
-cursor = collection.find({"status": "active"})
-products = await cursor.to_list(length=None)
+### 10.2 Authorization
 
-# ✅ Good: Project only needed fields
-cursor = collection.find(
-    {"status": "active"},
-    {"name": 1, "sku": 1, "price": 1, "images.url": 1}
-)
-products = await cursor.to_list(length=20)
+| Auth Type | Authorized Operations                        |
+| --------- | -------------------------------------------- |
+| None      | Health endpoints, product discovery          |
+| Admin JWT | Create, update, delete products, bulk import |
 
-# ✅ Good: Use indexes with hint
-cursor = collection.find({
-    "status": "active",
-    "taxonomy.category": "Clothing"
-}).hint([("status", 1), ("taxonomy.category", 1)])
-products = await cursor.to_list(length=20)
-```
+#### Endpoint Authorization Matrix
 
-### Response Optimization
+| Endpoint Pattern      | Required Auth | Additional Rules |
+| --------------------- | ------------- | ---------------- |
+| `GET /health/*`       | None          | Public           |
+| `GET /api/products/*` | None          | Public           |
+| `POST /api/admin/*`   | Admin JWT     | Admin role       |
+| `PUT /api/admin/*`    | Admin JWT     | Admin role       |
+| `DELETE /api/admin/*` | Admin JWT     | Admin role       |
 
-1. **Compression**: Enable gzip compression via FastAPI middleware
-2. **Field Selection**: Only return necessary fields in API responses
-3. **Denormalized Data**: Store computed values (review aggregates, availability) to avoid joins
+### 10.3 Service-to-Service Communication
 
-### Monitoring & Profiling
+Other services call Product Service APIs using direct HTTP with service tokens.
 
-```python
-# Track query performance
-import time
-from app.core.logger import logger
-from prometheus_client import Histogram
+| Header             | Value                    | Purpose             |
+| ------------------ | ------------------------ | ------------------- |
+| `X-Service-Token`  | Pre-shared service token | Authentication      |
+| `X-Correlation-ID` | Request correlation ID   | Distributed tracing |
+| `X-Service-Name`   | Calling service name     | Audit logging       |
 
-query_duration_histogram = Histogram(
-    'product_query_duration_seconds',
-    'Query duration in seconds',
-    ['operation']
-)
+### 10.4 Input Validation
 
-async def track_query_performance(operation: str, query_func):
-    start_time = time.time()
-    result = await query_func()
-    duration = time.time() - start_time
+All input is validated using Pydantic models:
 
-    # Log slow queries
-    if duration > 0.2:  # 200ms
-        logger.warning(f"Slow query detected: {operation}", extra={
-            "operation": operation,
-            "duration": duration
-        })
+| Field         | Validation Rules                      |
+| ------------- | ------------------------------------- |
+| `sku`         | Required, unique, max 50 chars        |
+| `name`        | Required, max 200 chars               |
+| `price`       | Required, > 0                         |
+| `description` | Max 5000 chars                        |
+| `taxonomy`    | Valid department/category/subcategory |
 
-    # Record metric
-    query_duration_histogram.labels(operation=operation).observe(duration)
-    return result
+### 10.5 CORS Configuration
 
-# Usage
-product = await track_query_performance(
-    "get_product_by_id",
-    lambda: collection.find_one({"_id": ObjectId(id)})
-)
-```
+Cross-Origin Resource Sharing is configured for frontend access.
+
+**Allowed Origins (Development):**
+
+- `http://localhost:3000` (Customer UI)
+- `http://localhost:3001` (Admin UI)
 
 ---
 
-## Security Considerations
+## Document History
 
-### JWT Validation
-
-```python
-# Dependency for JWT validation
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
-import os
-
-security = HTTPBearer()
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-
-    try:
-        payload = jwt.decode(
-            token,
-            os.getenv("JWT_PUBLIC_KEY"),
-            algorithms=["RS256"]
-        )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired"
-        )
-    except jwt.InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-```
-
-### Input Sanitization
-
-```python
-# Prevent NoSQL injection in MongoDB queries
-def sanitize_query(query: dict) -> dict:
-    """Remove $ and . operators from user input"""
-    sanitized = {}
-    for key, value in query.items():
-        if isinstance(value, dict):
-            sanitized[key] = sanitize_query(value)
-        elif isinstance(value, str):
-            # Remove MongoDB operators
-            sanitized[key] = value.replace("$", "").replace(".", "")
-        else:
-            sanitized[key] = value
-    return sanitized
-
-# Use Pydantic for validation (automatic XSS prevention)
-from pydantic import BaseModel, validator
-
-class CreateProductRequest(BaseModel):
-    name: str
-    sku: str
-    price: float
-
-    @validator('name', 'sku')
-    def sanitize_string(cls, v):
-        # Pydantic automatically validates and sanitizes
-        return v.strip()
-```
-
-### Rate Limiting (at BFF/Gateway Level)
-
-Rate limiting is handled upstream at BFF/API Gateway, not in Product Service.
-
----
-
-## Deployment Configuration
-
-### Environment Variables
-
-```bash
-# Server
-PORT=8003
-ENVIRONMENT=production
-
-# Database
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/products
-MONGODB_POOL_MIN=10
-MONGODB_POOL_MAX=50
-
-# Dapr
-DAPR_HOST=localhost
-DAPR_HTTP_PORT=3500
-DAPR_GRPC_PORT=50001
-
-# Message Broker
-PUBSUB_COMPONENT_NAME=pubsub
-PRODUCT_EVENTS_TOPIC=product.events
-
-# JWT
-JWT_PUBLIC_KEY=<base64-encoded-public-key>
-
-# Logging
-LOG_LEVEL=info
-
-# Feature Flags
-ENABLE_BADGE_AUTOMATION=true
-ENABLE_BULK_IMPORT=true
-```
-
-### Dockerfile
-
-```dockerfile
-FROM python:3.11-slim AS builder
-
-WORKDIR /app
-
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
-
-# Copy application
-COPY app ./app
-
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Copy dependencies from builder
-COPY --from=builder /root/.local /root/.local
-COPY --from=builder /app/app ./app
-
-# Make sure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
-
-EXPOSE 8003
-
-# Run with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]
-```
-
-### Health Checks
-
-```python
-from fastapi import FastAPI
-from motor.motor_asyncio import AsyncIOMotorClient
-
-app = FastAPI()
-
-# Liveness probe
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-# Readiness probe
-@app.get("/health/ready")
-async def health_ready(db: AsyncIOMotorDatabase = Depends(get_database)):
-    try:
-        # Ping database
-        await db.command("ping")
-        return {"status": "ready", "database": "connected"}
-    except Exception as e:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "not ready", "database": "disconnected"}
-        )
-```
-
----
-
-## Future Enhancements
-
-1. **GraphQL API**: Alternative to REST for flexible queries
-2. **Elasticsearch Integration**: Full-text search offloading
-3. **Redis Caching**: Cache frequently accessed products
-4. **CQRS Full Implementation**: Separate read/write models
-5. **Event Sourcing**: Store complete event history
-6. **Batch Processing**: Background jobs for badge automation using Celery
-7. **Multi-Region Support**: Geographic data replication
-
----
-
-## References
-
-- [Product Service PRD](./PRD.md)
-- [Platform Architecture](../../../docs/PLATFORM_ARCHITECTURE.md)
-- [Dapr Documentation](https://docs.dapr.io/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Motor Documentation](https://motor.readthedocs.io/)
-- [Pydantic Documentation](https://docs.pydantic.dev/)
-
----
-
-## Document Change History
-
-| Version | Date       | Changes                           | Author  |
-| ------- | ---------- | --------------------------------- | ------- |
-| 1.0     | 2025-11-03 | Initial architecture document     | AI Team |
-| 2.0     | 2025-11-03 | Converted to Python/FastAPI stack | AI Team |
+| Version | Date       | Author | Changes              |
+| ------- | ---------- | ------ | -------------------- |
+| 1.0     | 2025-01-24 | Team   | Initial architecture |
