@@ -216,6 +216,31 @@ az resource update \
   --resource-type "Microsoft.DocumentDB/databaseAccounts" \
   --set properties.disableLocalAuth=false
 
+# Configure Cosmos DB firewall:
+# - Enable public network access
+# - Add your current IP for local development/seeding
+# - Add 0.0.0.0 to allow Azure services (Container Apps, etc.)
+# Note: Cosmos DB updates can take 5-15 minutes to complete
+
+# Get your current public IP
+MY_IP=$(curl -s ifconfig.me)
+echo "Your public IP: $MY_IP"
+
+# Enable public access with your IP and Azure services
+az cosmosdb update \
+  --name $COSMOS_ACCOUNT \
+  --resource-group $RESOURCE_GROUP \
+  --public-network-access ENABLED \
+  --ip-range-filter "$MY_IP,0.0.0.0"
+
+# Wait for the update to complete (check status)
+echo "Waiting for Cosmos DB update to complete..."
+while [ "$(az cosmosdb show --name $COSMOS_ACCOUNT --resource-group $RESOURCE_GROUP --query provisioningState -o tsv)" = "Updating" ]; do
+  echo "Still updating..."
+  sleep 30
+done
+echo "Cosmos DB update complete!"
+
 # Create database
 az cosmosdb mongodb database create \
   --resource-group $RESOURCE_GROUP \
@@ -239,7 +264,11 @@ echo "Cosmos DB connection string formatted with database: $DB_NAME"
 echo "Connection (sanitized): $(echo "$COSMOS_CONNECTION" | sed 's|://[^:]*:[^@]*@|://***:***@|')"
 ```
 
-> **Important**: The `sed` command inserts the database name (`product_service_db`) into the URI path. The product-service extracts the database name from the URI automatically - no separate `MONGODB_DATABASE` variable needed.
+> **Important**:
+>
+> - The `sed` command inserts the database name (`product_service_db`) into the URI path. The product-service extracts the database name from the URI automatically - no separate `MONGODB_DATABASE` variable needed.
+> - **Firewall changes can take 5-15 minutes** to propagate. The script includes a wait loop.
+> - `0.0.0.0` allows Azure services (like Container Apps) to access Cosmos DB.
 
 ### Step 11: Create Dapr Component for Azure Service Bus
 
