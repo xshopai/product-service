@@ -149,6 +149,60 @@ class DaprEventPublisher:
         }
         return await self.publish_event("product.deleted", data, correlation_id)
 
+    async def publish_product_price_changed(
+        self,
+        product_id: str,
+        old_price: float,
+        new_price: float,
+        updated_by: str,
+        correlation_id: Optional[str] = None
+    ) -> bool:
+        """Publish product.price.changed event"""
+        data = {
+            "productId": product_id,
+            "oldPrice": old_price,
+            "newPrice": new_price,
+            "updatedBy": updated_by,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        return await self.publish_event("product.price.changed", data, correlation_id)
+
+    async def publish_badge_assigned(
+        self,
+        product_id: str,
+        badge_type: str,
+        badge_label: str,
+        assigned_by: str,
+        expires_at: Optional[str] = None,
+        correlation_id: Optional[str] = None
+    ) -> bool:
+        """Publish product.badge.assigned event"""
+        data = {
+            "productId": product_id,
+            "badgeType": badge_type,
+            "badgeLabel": badge_label,
+            "assignedBy": assigned_by,
+            "expiresAt": expires_at,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        return await self.publish_event("product.badge.assigned", data, correlation_id)
+
+    async def publish_badge_removed(
+        self,
+        product_id: str,
+        badge_type: str,
+        removed_by: str,
+        correlation_id: Optional[str] = None
+    ) -> bool:
+        """Publish product.badge.removed event"""
+        data = {
+            "productId": product_id,
+            "badgeType": badge_type,
+            "removedBy": removed_by,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+        return await self.publish_event("product.badge.removed", data, correlation_id)
+
 
 # Global publisher instance
 event_publisher = DaprEventPublisher()

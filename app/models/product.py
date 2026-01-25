@@ -57,6 +57,23 @@ class ProductVariant(BaseModel):
     size: Optional[str] = Field(None, description="Size of this variant")
 
 
+class ProductBadge(BaseModel):
+    """Model for product badges (New Arrival, Best Seller, etc.)"""
+    type: str = Field(..., description="Badge type: new-arrival, best-seller, on-sale, featured, limited-edition")
+    label: str = Field(..., description="Display label for the badge")
+    priority: int = Field(default=0, description="Display priority (higher = more prominent)")
+    expires_at: Optional[datetime] = Field(None, description="Badge expiration date (null = never expires)")
+    assigned_at: datetime = Field(default_factory=utc_now, description="When the badge was assigned")
+    assigned_by: str = Field(default="system", description="Who assigned the badge")
+
+
+class VariationType(str):
+    """Variation type enum"""
+    STANDALONE = "standalone"
+    PARENT = "parent"
+    CHILD = "child"
+
+
 class ProductTaxonomy(BaseModel):
     """Hierarchical category taxonomy"""
     department: Optional[str] = None      # Level 1: Women, Men, Kids, Electronics
@@ -93,6 +110,14 @@ class ProductBase(BaseModel):
     
     # Product specifications
     specifications: Dict[str, str] = {}
+    
+    # Product badges
+    badges: List[ProductBadge] = Field(default_factory=list, description="Product badges (New Arrival, Best Seller, etc.)")
+    
+    # Product variation hierarchy
+    variation_type: str = Field(default="standalone", description="standalone, parent, or child")
+    parent_product_id: Optional[str] = Field(None, description="Parent product ID for child variations")
+    variation_attributes: Dict[str, str] = Field(default_factory=dict, description="Attributes that define this variation (color, size)")
     
     # Denormalized data from other services
     availabilityStatus: Optional[AvailabilityStatus] = Field(None, alias="availability_status")

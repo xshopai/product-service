@@ -7,7 +7,7 @@ Admin CRUD operations (create, update, delete, reactivate) are in admin.py
 and served at /api/admin/products endpoints.
 """
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
@@ -15,11 +15,154 @@ from app.dependencies.product import get_product_service
 from app.services.product import ProductService
 from app.schemas.product import (
     ProductResponse,
+    AutocompleteResponse,
+    CursorPaginatedResponse,
+    BatchProductLookupRequest,
+    BatchProductLookupResponse,
 )
 from app.core.errors import ErrorResponseModel
 from app.core.logger import logger
 
 router = APIRouter()
+
+
+# ============================================
+# Autocomplete Endpoint (PRD Section 4.3)
+# ============================================
+
+@router.get(
+    "/autocomplete",
+    response_model=AutocompleteResponse,
+    tags=["search"],
+    summary="Autocomplete Suggestions",
+    description="Get autocomplete suggestions for search queries."
+)
+async def autocomplete(
+    q: str = Query(..., min_length=2, description="Search query (min 2 characters)"),
+    limit: int = Query(10, ge=1, le=20, description="Max suggestions to return"),
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Get autocomplete suggestions for product search.
+    
+    Returns:
+    - suggestions: Combined list of product names, categories, and tags
+    - products: Matching product names with IDs
+    - categories: Matching category names
+    """
+    return await service.get_autocomplete_suggestions(q, limit)
+
+
+# ============================================
+# Batch Product Lookup (ARCH 4.1)
+# ============================================
+
+@router.post(
+    "/batch",
+    response_model=BatchProductLookupResponse,
+    tags=["products"],
+    summary="Batch Product Lookup",
+    description="Get multiple products by IDs in a single request."
+)
+async def batch_product_lookup(
+    request: BatchProductLookupRequest,
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Look up multiple products by their IDs in a single request.
+    Useful for cart validation and order processing.
+    
+    Returns:
+    - products: List of found products
+    - not_found: List of IDs that were not found
+    """
+    result = await service.batch_get_products(request.product_ids)
+    return BatchProductLookupResponse(**result)
+
+
+# ============================================
+# Cursor-based Search (ARCH 4.1)
+# ============================================
+
+@router.get(
+    "/search/cursor",
+    response_model=CursorPaginatedResponse,
+    tags=["search"],
+    summary="Search Products (Cursor Pagination)",
+    description="Search products with cursor-based pagination for large datasets and infinite scroll."
+)
+async def search_products_cursor(
+    q: Optional[str] = Query(None, description="Search text"),
+    department: Optional[str] = Query(None, description="Filter by department"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    subcategory: Optional[str] = Query(None, description="Filter by subcategory"),
+    min_price: Optional[float] = Query(None, ge=0, description="Minimum price"),
+    max_price: Optional[float] = Query(None, ge=0, description="Maximum price"),
+    tags: Optional[List[str]] = Query(None, description="Filter by tags"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    sort: str = Query("created_at", description="Sort field: created_at, price, name"),
+    sort_order: str = Query("desc", description="Sort order: asc or desc"),
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Search products with cursor-based pagination.
+    
+    Better for:
+    - Large datasets (millions of products)
+    - Infinite scroll UIs
+    - Real-time updates (no missed/duplicate items)
+    
+    Returns:
+    - products: List of products
+    - pagination: Contains next_cursor, has_more, limit
+    """
+    result = await service.search_products_cursor(
+        search_text=q,
+        department=department,
+        category=category,
+        subcategory=subcategory,
+        min_price=min_price,
+        max_price=max_price,
+        tags=tags,
+        cursor=cursor,
+        limit=limit,
+        sort=sort,
+        sort_order=sort_order
+    )
+    return CursorPaginatedResponse(
+        products=result["products"],
+        pagination=result["pagination"]
+    )
+
+
+# ============================================
+# Category Path Endpoint (ARCH 4.1)
+# ============================================
+
+@router.get(
+    "/category/{category_path:path}",
+    responses={404: {"model": ErrorResponseModel}},
+    tags=["categories"],
+    summary="Get Products by Category Path",
+    description="Get products by hierarchical category path (e.g., men/clothing/t-shirts)."
+)
+async def get_products_by_category_path(
+    category_path: str,
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Max items to return"),
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Get products by category path.
+    
+    Path format: department/category/subcategory
+    Examples:
+    - men
+    - men/clothing
+    - men/clothing/t-shirts
+    """
+    return await service.get_products_by_category_path(category_path, skip=skip, limit=limit)
 
 
 # Categories endpoint
@@ -157,6 +300,32 @@ async def list_products(
         search_text=None, department=department, category=category, subcategory=subcategory,
         min_price=min_price, max_price=max_price, tags=tags, skip=skip, limit=limit
     )
+
+
+# ============================================
+# Product Variations (PRD 4.8)
+# ============================================
+
+@router.get(
+    "/{product_id}/variations",
+    response_model=List[ProductResponse],
+    responses={404: {"model": ErrorResponseModel}},
+    tags=["variations"],
+    summary="Get Product Variations",
+    description="Get all variations (sizes, colors, etc.) for a parent product."
+)
+async def get_product_variations(
+    product_id: str,
+    service: ProductService = Depends(get_product_service),
+):
+    """
+    Get all child variations for a parent product.
+    
+    Returns an empty list if the product has no variations.
+    Returns 404 if the product is not found.
+    Returns 400 if the product is not a parent variation type.
+    """
+    return await service.get_variations(product_id)
 
 
 # Get single product by ID (public endpoint)

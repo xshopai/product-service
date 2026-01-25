@@ -552,3 +552,280 @@ class ProductRepository:
         except PyMongoError as e:
             logger.error(f"MongoDB error getting categories: {e}")
             raise ErrorResponse(f"Failed to fetch categories: {str(e)}", status_code=500)
+
+    # ==================== VARIATION METHODS ====================
+
+    async def get_variations_by_parent_id(self, parent_id: str) -> List[ProductResponse]:
+        """Get all child variations for a parent product"""
+        try:
+            if not ObjectId.is_valid(parent_id):
+                return []
+            
+            cursor = self.collection.find({
+                "parent_product_id": parent_id,
+                "variation_type": "child",
+                "is_active": True
+            })
+            
+            variations = []
+            async for doc in cursor:
+                variations.append(self._doc_to_response(doc))
+            
+            return variations
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error getting variations: {e}")
+            raise ErrorResponse("Database error during variations retrieval", status_code=503)
+
+    # ==================== BADGE METHODS ====================
+
+    async def add_badge(self, product_id: str, badge: Any) -> Optional[ProductResponse]:
+        """Add a badge to a product"""
+        try:
+            if not ObjectId.is_valid(product_id):
+                return None
+            
+            obj_id = ObjectId(product_id)
+            
+            # Convert badge to dict
+            badge_dict = badge.model_dump() if hasattr(badge, 'model_dump') else dict(badge)
+            
+            result = await self.collection.update_one(
+                {"_id": obj_id},
+                {
+                    "$push": {"badges": badge_dict},
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
+                }
+            )
+            
+            if result.matched_count == 0:
+                return None
+            
+            updated_doc = await self.collection.find_one({"_id": obj_id})
+            return self._doc_to_response(updated_doc)
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error adding badge: {e}")
+            raise ErrorResponse("Database error during badge assignment", status_code=503)
+
+    async def remove_badge(self, product_id: str, badge_type: str) -> bool:
+        """Remove a badge from a product"""
+        try:
+            if not ObjectId.is_valid(product_id):
+                return False
+            
+            obj_id = ObjectId(product_id)
+            
+            result = await self.collection.update_one(
+                {"_id": obj_id},
+                {
+                    "$pull": {"badges": {"type": badge_type}},
+                    "$set": {"updated_at": datetime.now(timezone.utc)}
+                }
+            )
+            
+            return result.modified_count > 0
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error removing badge: {e}")
+            raise ErrorResponse("Database error during badge removal", status_code=503)
+
+    # ==================== AUTOCOMPLETE METHODS ====================
+
+    async def get_autocomplete_suggestions(self, query: str, limit: int = 10) -> Dict[str, List]:
+        """
+        Get autocomplete suggestions for search.
+        Returns matching product names, categories, and tags.
+        """
+        try:
+            # Regex for case-insensitive prefix matching
+            regex_pattern = {"$regex": f"^{query}", "$options": "i"}
+            
+            # Get matching product names
+            product_cursor = self.collection.find(
+                {"name": regex_pattern, "is_active": True},
+                {"name": 1, "_id": 1}
+            ).limit(limit)
+            
+            products = []
+            async for doc in product_cursor:
+                products.append({
+                    "id": str(doc["_id"]),
+                    "name": doc["name"]
+                })
+            
+            # Get matching categories
+            all_categories = await self.collection.distinct(
+                "category",
+                {"is_active": True, "category": {"$ne": None, "$ne": ""}}
+            )
+            categories = [c for c in all_categories if c.lower().startswith(query.lower())][:limit]
+            
+            # Get matching tags
+            all_tags = await self.collection.distinct(
+                "tags",
+                {"is_active": True, "tags": {"$ne": None}}
+            )
+            # Flatten and filter tags
+            matching_tags = [t for t in all_tags if isinstance(t, str) and t.lower().startswith(query.lower())][:limit]
+            
+            # Combine all suggestions
+            suggestions = []
+            for p in products:
+                suggestions.append({"type": "product", "text": p["name"], "id": p["id"]})
+            for c in categories:
+                suggestions.append({"type": "category", "text": c})
+            for t in matching_tags:
+                suggestions.append({"type": "tag", "text": t})
+            
+            return {
+                "suggestions": suggestions[:limit],
+                "products": products,
+                "categories": categories
+            }
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error getting autocomplete suggestions: {e}")
+            raise ErrorResponse("Database error during autocomplete", status_code=503)
+
+    # ==================== CURSOR PAGINATION METHODS ====================
+
+    async def search_with_cursor(
+        self,
+        search_text: Optional[str] = None,
+        department: Optional[str] = None,
+        category: Optional[str] = None,
+        subcategory: Optional[str] = None,
+        min_price: Optional[float] = None,
+        max_price: Optional[float] = None,
+        tags: Optional[List[str]] = None,
+        cursor: Optional[str] = None,
+        limit: int = 20,
+        sort: str = "created_at",
+        sort_order: str = "desc"
+    ) -> Dict[str, Any]:
+        """
+        Search products with cursor-based pagination.
+        Uses encoded cursor for stateless pagination.
+        """
+        import base64
+        import json
+        
+        try:
+            # Build base query
+            query = {"is_active": True}
+            
+            if search_text:
+                query["$or"] = [
+                    {"name": {"$regex": search_text, "$options": "i"}},
+                    {"description": {"$regex": search_text, "$options": "i"}},
+                    {"tags": {"$regex": search_text, "$options": "i"}}
+                ]
+            
+            if department:
+                query["taxonomy.department"] = {"$regex": department, "$options": "i"}
+            if category:
+                query["taxonomy.category"] = {"$regex": category, "$options": "i"}
+            if subcategory:
+                query["taxonomy.subcategory"] = {"$regex": subcategory, "$options": "i"}
+            
+            if min_price is not None or max_price is not None:
+                query["price"] = {}
+                if min_price is not None:
+                    query["price"]["$gte"] = min_price
+                if max_price is not None:
+                    query["price"]["$lte"] = max_price
+            
+            if tags:
+                query["tags"] = {"$in": tags}
+            
+            # Decode cursor if provided
+            cursor_data = None
+            if cursor:
+                try:
+                    cursor_json = base64.b64decode(cursor.encode()).decode()
+                    cursor_data = json.loads(cursor_json)
+                except Exception:
+                    pass  # Invalid cursor, start from beginning
+            
+            # Apply cursor condition
+            sort_direction = -1 if sort_order == "desc" else 1
+            sort_field = sort if sort in ["created_at", "price", "name", "_id"] else "created_at"
+            
+            if cursor_data:
+                cursor_value = cursor_data.get("value")
+                cursor_id = cursor_data.get("id")
+                
+                if sort_direction == -1:  # Descending
+                    query["$or"] = [
+                        {sort_field: {"$lt": cursor_value}},
+                        {sort_field: cursor_value, "_id": {"$lt": ObjectId(cursor_id)}}
+                    ]
+                else:  # Ascending
+                    query["$or"] = [
+                        {sort_field: {"$gt": cursor_value}},
+                        {sort_field: cursor_value, "_id": {"$gt": ObjectId(cursor_id)}}
+                    ]
+            
+            # Execute query (fetch limit + 1 to check if more exist)
+            mongo_cursor = self.collection.find(query).sort([
+                (sort_field, sort_direction),
+                ("_id", sort_direction)
+            ]).limit(limit + 1)
+            
+            docs = await mongo_cursor.to_list(length=limit + 1)
+            
+            # Check if more results exist
+            has_more = len(docs) > limit
+            if has_more:
+                docs = docs[:limit]  # Remove extra item
+            
+            # Convert to responses
+            products = [self._doc_to_response(doc) for doc in docs]
+            
+            # Generate next cursor
+            next_cursor = None
+            if has_more and docs:
+                last_doc = docs[-1]
+                cursor_obj = {
+                    "value": last_doc.get(sort_field),
+                    "id": str(last_doc["_id"])
+                }
+                next_cursor = base64.b64encode(json.dumps(cursor_obj).encode()).decode()
+            
+            return {
+                "products": products,
+                "pagination": {
+                    "next_cursor": next_cursor,
+                    "has_more": has_more,
+                    "limit": limit
+                }
+            }
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error during cursor search: {e}")
+            raise ErrorResponse("Database error during search", status_code=503)
+
+    # ==================== SEO UPDATE METHOD ====================
+
+    async def update_seo(self, product_id: str, seo_data: Dict[str, Any]) -> bool:
+        """Update SEO metadata for a product"""
+        try:
+            if not ObjectId.is_valid(product_id):
+                return False
+            
+            result = await self.collection.update_one(
+                {"_id": ObjectId(product_id)},
+                {
+                    "$set": {
+                        "seo": seo_data,
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            return result.modified_count > 0
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error updating SEO: {e}")
+            raise ErrorResponse("Database error during SEO update", status_code=503)
