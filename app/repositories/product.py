@@ -389,91 +389,60 @@ class ProductRepository:
         - Base score = average_rating × total_review_count
         - Recency boost = 1.5x for products created in last 30 days
         - Minimum 3 reviews required (with fallbacks)
+        
+        Note: CosmosDB for MongoDB has strict index requirements for $sort operations.
+        We use simple find() queries and sort in Python to avoid index issues.
         """
         try:
             from datetime import datetime, timedelta, timezone
             
             thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
             
-            # Fetch candidate products (3x limit for filtering)
-            candidate_limit = limit * 3
+            # Fetch candidate products (10x limit for filtering and sorting in Python)
+            candidate_limit = limit * 10
             
-            pipeline = [
-                {"$match": {"is_active": True}},
-                # Add trending score calculation
-                {"$addFields": {
-                    "base_score": {
-                        "$multiply": [
-                            {"$ifNull": ["$review_aggregates.average_rating", 0]},
-                            {"$ifNull": ["$review_aggregates.total_review_count", 0]}
-                        ]
-                    },
-                    "is_recent": {
-                        "$gte": ["$created_at", thirty_days_ago]
-                    }
-                }},
-                {"$addFields": {
-                    "trending_score": {
-                        "$cond": {
-                            "if": "$is_recent",
-                            "then": {"$multiply": ["$base_score", 1.5]},
-                            "else": "$base_score"
-                        }
-                    }
-                }},
-                # Priority filter: Products with 3+ reviews
-                {"$match": {"review_aggregates.total_review_count": {"$gte": 3}}},
-                {"$sort": {"trending_score": -1}},
-                {"$limit": limit}
-            ]
+            # CosmosDB-compatible approach: Use simple find() without $sort in aggregation
+            # Fetch products and sort in Python to avoid index requirement errors
             
-            docs = await self.collection.aggregate(pipeline).to_list(length=limit)
+            # Try to get products with reviews first (no $sort to avoid index issues)
+            cursor = self.collection.find({
+                "is_active": True,
+                "review_aggregates.total_review_count": {"$gte": 1}
+            }).limit(candidate_limit)
+            docs = await cursor.to_list(length=candidate_limit)
             
-            # If not enough results, fallback to products with any reviews
+            # If not enough products with reviews, get any active products
             if len(docs) < limit:
-                fallback_pipeline = [
-                    {"$match": {"is_active": True}},
-                    {"$addFields": {
-                        "base_score": {
-                            "$multiply": [
-                                {"$ifNull": ["$review_aggregates.average_rating", 0]},
-                                {"$ifNull": ["$review_aggregates.total_review_count", 0]}
-                            ]
-                        },
-                        "is_recent": {"$gte": ["$created_at", thirty_days_ago]}
-                    }},
-                    {"$addFields": {
-                        "trending_score": {
-                            "$cond": {
-                                "if": "$is_recent",
-                                "then": {"$multiply": ["$base_score", 1.5]},
-                                "else": "$base_score"
-                            }
-                        }
-                    }},
-                    {"$match": {"review_aggregates.total_review_count": {"$gt": 0}}},
-                    {"$sort": {"trending_score": -1}},
-                    {"$limit": candidate_limit}
-                ]
-                docs = await self.collection.aggregate(fallback_pipeline).to_list(length=candidate_limit)
+                cursor = self.collection.find({"is_active": True}).limit(candidate_limit)
+                docs = await cursor.to_list(length=candidate_limit)
             
-            # Final fallback: Use recently created products
-            if len(docs) < limit:
-                cursor = self.collection.find({"is_active": True}).sort("created_at", -1).limit(limit)
-                basic_docs = await cursor.to_list(length=limit)
-                # Add default scores
-                for doc in basic_docs:
-                    doc["trending_score"] = 0
-                    # Safely check if recent - handle both timezone-aware and naive datetimes
-                    created_at = doc.get("created_at")
-                    if created_at:
-                        # Ensure timezone awareness for comparison
-                        if created_at.tzinfo is None:
-                            created_at = created_at.replace(tzinfo=timezone.utc)
-                        doc["is_recent"] = created_at >= thirty_days_ago
-                    else:
-                        doc["is_recent"] = False
-                docs = basic_docs
+            # Compute trending scores in Python (avoids CosmosDB aggregation/sort issues)
+            for doc in docs:
+                avg_rating = 0
+                review_count = 0
+                if doc.get("review_aggregates"):
+                    avg_rating = doc["review_aggregates"].get("average_rating", 0) or 0
+                    review_count = doc["review_aggregates"].get("total_review_count", 0) or 0
+                
+                base_score = avg_rating * review_count
+                
+                # Check if recent - handle both timezone-aware and naive datetimes
+                created_at = doc.get("created_at")
+                is_recent = False
+                if created_at:
+                    # Ensure timezone awareness for comparison
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    is_recent = created_at >= thirty_days_ago
+                
+                # Apply recency boost
+                trending_score = base_score * 1.5 if is_recent else base_score
+                
+                doc["trending_score"] = trending_score
+                doc["is_recent"] = is_recent
+            
+            # Sort by computed trending_score in Python
+            docs.sort(key=lambda x: x.get("trending_score", 0), reverse=True)
             
             # Convert to response format with trending data
             products = []
@@ -481,10 +450,6 @@ class ProductRepository:
                 # Convert _id to id string
                 if "_id" in doc:
                     doc["id"] = str(doc.pop("_id"))
-                
-                # Add trending metadata
-                doc["trending_score"] = doc.get("trending_score", 0)
-                doc["is_recent"] = doc.get("is_recent", False)
                 
                 products.append(doc)
             

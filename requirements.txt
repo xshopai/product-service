@@ -1,6 +1,7 @@
 # Core FastAPI dependencies
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
 # Pin motor to version compatible with Azure Cosmos DB MongoDB API (wire version 6)
 # motor 3.3.x uses pymongo 4.6.x which requires MongoDB 4.2+ (wire version 8+)
 # motor 3.1.x uses pymongo 4.3.x which supports wire version 6

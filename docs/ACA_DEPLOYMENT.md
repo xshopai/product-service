@@ -444,6 +444,77 @@ az containerapp update \
 
 ---
 
+## Troubleshooting
+
+### CosmosDB MongoDB API Limitations
+
+**Issue:** Queries that use MongoDB aggregation pipelines with `$sort` on computed fields or non-indexed fields will fail with:
+
+```
+The index path corresponding to the specified order-by item is excluded
+```
+
+**Root Cause:** CosmosDB MongoDB API has limited support for aggregation pipeline operations. Unlike native MongoDB, CosmosDB requires explicit indexes for sorted fields and doesn't support sorting on computed fields in aggregation pipelines.
+
+**Solution:** For endpoints that need sorting (e.g., `/api/products/trending`), avoid using aggregation pipelines with `$sort`. Instead:
+
+1. Use simple `find()` queries with indexed field sorting
+2. Perform complex sorting/computation in application code (Python/Node.js)
+
+**Example - Before (fails in CosmosDB):**
+
+```python
+# DON'T: $addFields + $sort on computed field
+pipeline = [
+    {"$addFields": {"trendingScore": {"$add": ["$salesCount", "$viewCount"]}}},
+    {"$sort": {"trendingScore": -1}}  # Fails!
+]
+```
+
+**Example - After (works in CosmosDB):**
+
+```python
+# DO: Simple find() + sort in Python
+products = list(collection.find({"status": "active"}).limit(100))
+products.sort(key=lambda p: p.get("salesCount", 0) + p.get("viewCount", 0), reverse=True)
+```
+
+### Missing Python Dependencies
+
+**Issue:** FastAPI returns 500 error with `No module named 'python_multipart'`
+
+**Solution:** Ensure `requirements.txt` includes:
+
+```
+python-multipart>=0.0.6
+```
+
+Then rebuild and push the Docker image:
+
+```bash
+docker build -t $ACR_LOGIN_SERVER/product-service:latest .
+docker push $ACR_LOGIN_SERVER/product-service:latest
+az containerapp update --name $APP_NAME --resource-group $RESOURCE_GROUP --image $ACR_LOGIN_SERVER/product-service:latest
+```
+
+### Database Connection Errors
+
+**Issue:** Application fails to connect to CosmosDB
+
+**Check:**
+
+1. Verify `MONGODB_URI` environment variable is set correctly
+2. Ensure CosmosDB firewall allows Azure Container Apps (or has "Allow access from Azure services" enabled)
+3. Check connection string format: `mongodb://<account>:<key>@<account>.mongo.cosmos.azure.com:10255/?ssl=true&replicaSet=globaldb&...`
+
+```bash
+# View current environment variables
+az containerapp show --name $APP_NAME --resource-group $RESOURCE_GROUP \
+    --query "properties.template.containers[0].env"
+```
+
+---
+
 ## Cleanup Resources
 
 ```bash
