@@ -35,6 +35,12 @@ def health_check(request: Request):
     }
 
 
+@router.get("/health/ready")
+async def health_ready_check(request: Request):
+    """Health ready endpoint - alias for readiness check (Kubernetes/ACA compatible)"""
+    return await readiness_check(request)
+
+
 @router.get("/readiness")
 async def readiness_check(request: Request):
     """Readiness probe - check if service is ready to serve traffic"""

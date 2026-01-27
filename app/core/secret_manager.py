@@ -116,16 +116,20 @@ def get_database_config() -> Dict[str, Any]:
             "Set MONGODB_URI env var or MONGODB_URI in Dapr secret store."
         )
     
-    # Extract database name from URI path
+    # Extract database name from URI path or environment variable
     # URI format: mongodb://user:pass@host:port/database?params
     # or: mongodb+srv://user:pass@host/database?params
     parsed = urlparse(mongodb_uri)
     database = parsed.path.lstrip('/') if parsed.path and parsed.path != '/' else None
     
+    # Check for MONGODB_DB_NAME environment variable (used by Azure Container Apps)
     if not database:
-        database = 'productdb'  # Default fallback
+        database = os.environ.get('MONGODB_DB_NAME')
+    
+    if not database:
+        database = 'product_service_db'  # Default fallback
         logger.warning(
-            f"No database name in URI, using default: {database}",
+            f"No database name in URI or MONGODB_DB_NAME env var, using default: {database}",
             metadata={"event": "db_name_fallback", "database": database}
         )
     

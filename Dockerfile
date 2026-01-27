@@ -56,7 +56,7 @@ EXPOSE 8001
 
 # Health check (using Python to avoid curl dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/readiness')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready')" || exit 1
 
 # Start development server with auto-reload
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
@@ -88,7 +88,7 @@ EXPOSE 8001
 
 # Health check (using Python to avoid curl dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/readiness')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready')" || exit 1
 
 # Start production server with single worker (multi-worker needs gunicorn for proper process management)
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
