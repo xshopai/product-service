@@ -5,7 +5,7 @@ metadata:
 spec:
   topic: review-events
   route: /dapr/events/review.created
-  pubsubname: review-pubsub
+  pubsubname: pubsub
   metadata:
     rawPayload: "false"
 scopes:
@@ -18,7 +18,7 @@ metadata:
 spec:
   topic: review-events
   route: /dapr/events/review.updated
-  pubsubname: review-pubsub
+  pubsubname: pubsub
   metadata:
     rawPayload: "false"
 scopes:
@@ -31,7 +31,7 @@ metadata:
 spec:
   topic: review-events
   route: /dapr/events/review.deleted
-  pubsubname: review-pubsub
+  pubsubname: pubsub
   metadata:
     rawPayload: "false"
 scopes:
@@ -44,7 +44,7 @@ metadata:
 spec:
   topic: inventory.updated
   route: /dapr/events/inventory.updated
-  pubsubname: event-bus
+  pubsubname: pubsub
   metadata:
     rawPayload: "false"
 scopes:
@@ -57,7 +57,7 @@ metadata:
 spec:
   topic: inventory.low_stock
   route: /dapr/events/inventory.low_stock
-  pubsubname: event-bus
+  pubsubname: pubsub
   metadata:
     rawPayload: "false"
 scopes:

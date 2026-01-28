@@ -386,7 +386,7 @@ async def check_message_broker_health() -> Dict[str, Any]:
     """Check message broker (RabbitMQ) connectivity via Dapr pub/sub"""
     check_start = time.time()
     dapr_http_port = config.dapr_http_port
-    pubsub_name = "product-pubsub"  # Default pubsub component name
+    pubsub_name = 'pubsub'  # Dapr pubsub component name
     
     # Test pub/sub connectivity by attempting to get component metadata
     metadata_url = f"http://localhost:{dapr_http_port}/v1.0/metadata"

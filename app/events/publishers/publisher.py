@@ -4,6 +4,7 @@ Publishes events via Dapr pub/sub component
 """
 
 import json
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -25,7 +26,7 @@ class DaprEventPublisher:
     """
     
     def __init__(self):
-        self.pubsub_name = "product-pubsub"
+        self.pubsub_name = 'pubsub'
         self.service_name = config.service_name
         
     async def publish_event(

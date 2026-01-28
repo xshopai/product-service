@@ -66,7 +66,7 @@ class TestDaprIntegration:
     @pytest.mark.asyncio
     async def test_dapr_pubsub_publish(self, dapr_port):
         """Test Dapr pub/sub publishing functionality"""
-        pubsub_name = os.getenv('DAPR_PUBSUB_NAME', 'product-pubsub')
+        pubsub_name = 'pubsub'  # Standard Dapr component name
         url = f"http://localhost:{dapr_port}/v1.0/publish/{pubsub_name}/test-topic"
         
         test_event = {

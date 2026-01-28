@@ -806,16 +806,16 @@ To support **deployment flexibility**, the Product Service implements a messagin
 
 ### 6.1 Environment Variables
 
-| Variable           | Description                 | Required | Default          |
-| ------------------ | --------------------------- | -------- | ---------------- |
-| `ENVIRONMENT`      | Environment mode            | No       | `development`    |
-| `PORT`             | Service port                | No       | `8001`           |
-| `HOST`             | Service host                | No       | `0.0.0.0`        |
-| `LOG_LEVEL`        | Logging level               | No       | `INFO`           |
-| `DAPR_HOST`        | Dapr sidecar host           | No       | `localhost`      |
-| `DAPR_HTTP_PORT`   | Dapr HTTP port              | No       | `3501`           |
-| `DAPR_GRPC_PORT`   | Dapr gRPC port              | No       | `50001`          |
-| `DAPR_PUBSUB_NAME` | Dapr pub/sub component name | No       | `xshopai-pubsub` |
+| Variable           | Description                 | Required | Default       |
+| ------------------ | --------------------------- | -------- | ------------- |
+| `ENVIRONMENT`      | Environment mode            | No       | `development` |
+| `PORT`             | Service port                | No       | `8001`        |
+| `HOST`             | Service host                | No       | `0.0.0.0`     |
+| `LOG_LEVEL`        | Logging level               | No       | `INFO`        |
+| `DAPR_HOST`        | Dapr sidecar host           | No       | `localhost`   |
+| `DAPR_HTTP_PORT`   | Dapr HTTP port              | No       | `3500`        |
+| `DAPR_GRPC_PORT`   | Dapr gRPC port              | No       | `50001`       |
+| `DAPR_PUBSUB_NAME` | Dapr pub/sub component name | No       | `pubsub`      |
 
 #### MongoDB Configuration
 
@@ -826,10 +826,11 @@ To support **deployment flexibility**, the Product Service implements a messagin
 
 ### 6.2 Messaging Provider Configuration
 
-| Variable           | Description            | Required           |
-| ------------------ | ---------------------- | ------------------ |
-| `DAPR_HTTP_PORT`   | Dapr sidecar HTTP port | No (default: 3501) |
-| `DAPR_PUBSUB_NAME` | Pub/sub component name | Yes                |
+| Variable           | Description            | Required            |
+| ------------------ | ---------------------- | ------------------- |
+| `DAPR_HTTP_PORT`   | Dapr sidecar HTTP port | No (default: 3500)  |
+| `DAPR_GRPC_PORT`   | Dapr sidecar gRPC port | No (default: 50001) |
+| `DAPR_PUBSUB_NAME` | Pub/sub component name | Yes                 |
 
 ---
 

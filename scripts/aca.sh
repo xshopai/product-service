@@ -86,6 +86,13 @@ SERVICE_NAME="product-service"
 APP_PORT=8001
 PROJECT_NAME="xshopai"
 
+# Dapr configuration for Azure Container Apps
+# In ACA, Dapr sidecar ALWAYS runs on port 3500 (HTTP) and 50001 (gRPC)
+# (different from local dev where each service has unique ports per PORT_CONFIGURATION.md)
+DAPR_HTTP_PORT=3500
+DAPR_GRPC_PORT=50001
+DAPR_PUBSUB_NAME="pubsub"
+
 # Get script directory and service directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -297,8 +304,9 @@ ENV_VARS=("ENVIRONMENT=production")
 ENV_VARS+=("PORT=$APP_PORT")
 ENV_VARS+=("MONGODB_URI=$COSMOS_CONNECTION_STRING")
 ENV_VARS+=("MONGODB_DB_NAME=$DB_NAME")
-ENV_VARS+=("DAPR_HTTP_PORT=3501")
-ENV_VARS+=("PUBSUB_NAME=pubsub")
+ENV_VARS+=("DAPR_HTTP_PORT=$DAPR_HTTP_PORT")
+ENV_VARS+=("DAPR_GRPC_PORT=$DAPR_GRPC_PORT")
+ENV_VARS+=("DAPR_PUBSUB_NAME=$DAPR_PUBSUB_NAME")
 ENV_VARS+=("LOG_LEVEL=info")
 
 # Check if container app exists

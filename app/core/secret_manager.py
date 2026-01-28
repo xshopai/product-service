@@ -19,7 +19,7 @@ class SecretManager:
     
     def __init__(self):
         self.environment = config.environment
-        self.secret_store_name = 'secret-store'
+        self.secret_store_name = 'secretstore'
         
         logger.info(
             f"Secret manager initialized",
