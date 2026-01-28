@@ -142,11 +142,13 @@ dapr init
 dapr run \
   --app-id product-service \
   --app-port 8001 \
-  --dapr-http-port 3501 \
+  --dapr-http-port 3500 \
   --resources-path .dapr/components \
   --config .dapr/config.yaml \
   -- python main.py
 ```
+
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
 
 📖 See [Dapr Development Guide](docs/LOCAL_DEVELOPMENT_DAPR.md) for detailed instructions.
 

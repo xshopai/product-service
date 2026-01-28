@@ -39,10 +39,12 @@ The Product Service uses Dapr for:
 | ------------------ | --------------- |
 | **Service Name**   | product-service |
 | **App Port**       | 8001            |
-| **Dapr HTTP Port** | 3501            |
+| **Dapr HTTP Port** | 3500            |
 | **Dapr gRPC Port** | 50001           |
 | **Pub/Sub Name**   | xshopai-pubsub  |
 | **State Store**    | statestore      |
+
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
 
 ### Architecture with Dapr
 
@@ -55,7 +57,7 @@ The Product Service uses Dapr for:
                       ▼
 ┌─────────────────────────────────────────────────────────┐
 │                   Dapr Sidecar                          │
-│          HTTP: 3501    gRPC: 50001                      │
+│          HTTP: 3500    gRPC: 50001                      │
 │                                                         │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐  │
 │  │ Pub/Sub  │  │Secrets   │  │ Service Invocation   │  │
@@ -189,7 +191,7 @@ LOG_FILE_PATH=./logs/product-service.log
 
 # Dapr Configuration
 DAPR_HOST=localhost
-DAPR_HTTP_PORT=3501
+DAPR_HTTP_PORT=3500
 DAPR_GRPC_PORT=50001
 DAPR_APP_ID=product-service
 DAPR_PUBSUB_NAME=xshopai-pubsub
@@ -376,7 +378,7 @@ docker run -d \
 dapr run \
   --app-id product-service \
   --app-port 8001 \
-  --dapr-http-port 3501 \
+  --dapr-http-port 3500 \
   --dapr-grpc-port 50001 \
   --resources-path .dapr/components \
   --config .dapr/config.yaml \
@@ -405,7 +407,7 @@ Use the pre-configured VS Code task (press `Ctrl+Shift+P`, then "Tasks: Run Task
 ### Expected Output
 
 ```
-ℹ️  Starting Dapr with id product-service. HTTP Port: 3501. gRPC Port: 50001
+ℹ️  Starting Dapr with id product-service. HTTP Port: 3500. gRPC Port: 50001
 INFO[0000] Starting Dapr Runtime -- version 1.13.x
 INFO[0000] Dapr initialized.
 INFO:     Started server process [12345]
@@ -425,17 +427,17 @@ INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
 curl http://localhost:8001/health
 
 # Via Dapr sidecar
-curl http://localhost:3501/v1.0/healthz
+curl http://localhost:3500/v1.0/healthz
 
 # Via Dapr invoke
-curl http://localhost:3501/v1.0/invoke/product-service/method/health
+curl http://localhost:3500/v1.0/invoke/product-service/method/health
 ```
 
 ### 9.2 Check Dapr Components
 
 ```bash
 # List loaded components
-curl http://localhost:3501/v1.0/metadata
+curl http://localhost:3500/v1.0/metadata
 
 # Expected response includes:
 # - xshopai-pubsub (pub/sub)
@@ -447,7 +449,7 @@ curl http://localhost:3501/v1.0/metadata
 
 ```bash
 # Publish a test event
-curl -X POST http://localhost:3501/v1.0/publish/xshopai-pubsub/product.test \
+curl -X POST http://localhost:3500/v1.0/publish/xshopai-pubsub/product.test \
   -H "Content-Type: application/json" \
   -d '{"message": "Test event from Product Service"}'
 
@@ -458,10 +460,10 @@ curl -X POST http://localhost:3501/v1.0/publish/xshopai-pubsub/product.test \
 
 ```bash
 # Invoke service via Dapr
-curl http://localhost:3501/v1.0/invoke/product-service/method/api/products/search
+curl http://localhost:3500/v1.0/invoke/product-service/method/api/products/search
 
 # With parameters
-curl "http://localhost:3501/v1.0/invoke/product-service/method/api/products/search?q=test"
+curl "http://localhost:3500/v1.0/invoke/product-service/method/api/products/search?q=test"
 ```
 
 ---
@@ -516,7 +518,7 @@ Access RabbitMQ Management UI at http://localhost:15672 (guest/guest):
 
 ```bash
 # Simulate a review.created event
-curl -X POST http://localhost:3501/v1.0/publish/xshopai-pubsub/review.created \
+curl -X POST http://localhost:3500/v1.0/publish/xshopai-pubsub/review.created \
   -H "Content-Type: application/json" \
   -d '{
     "eventType": "review.created",
@@ -604,7 +606,7 @@ Press `Ctrl+Shift+P`, then "Tasks: Run Task" → "Stop Dapr Sidecar".
 3. Verify component configuration:
 
    ```bash
-   curl http://localhost:3501/v1.0/metadata
+   curl http://localhost:3500/v1.0/metadata
    ```
 
 4. Check Dapr logs:
@@ -648,7 +650,7 @@ Press `Ctrl+Shift+P`, then "Tasks: Run Task" → "Stop Dapr Sidecar".
 
 3. Check Dapr sidecar health:
    ```bash
-   curl http://localhost:3501/v1.0/healthz
+   curl http://localhost:3500/v1.0/healthz
    ```
 
 ### Issue: Port Conflicts
@@ -661,7 +663,7 @@ Press `Ctrl+Shift+P`, then "Tasks: Run Task" → "Stop Dapr Sidecar".
 # Find process using the port
 # Windows
 netstat -ano | findstr :8001
-netstat -ano | findstr :3501
+netstat -ano | findstr :3500
 
 # Kill the process
 taskkill /F /PID <PID>
@@ -703,8 +705,8 @@ dapr uninstall --all
 | ---------------------------------- | --------------------- |
 | http://localhost:8001              | Direct service access |
 | http://localhost:8001/docs         | Swagger UI            |
-| http://localhost:3501              | Dapr sidecar          |
-| http://localhost:3501/v1.0/healthz | Dapr health           |
+| http://localhost:3500              | Dapr sidecar          |
+| http://localhost:3500/v1.0/healthz | Dapr health           |
 | http://localhost:8080              | Dapr Dashboard        |
 | http://localhost:15672             | RabbitMQ Management   |
 | http://localhost:9411              | Zipkin tracing        |

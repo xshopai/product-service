@@ -5,7 +5,7 @@
 echo -e "\033[0;32mStarting Product Service with Dapr...\033[0m"
 echo -e "\033[0;36mService will be available at: http://localhost:8001\033[0m"
 echo -e "\033[0;36mAPI documentation: http://localhost:8001/docs\033[0m"
-echo -e "\033[0;36mDapr HTTP endpoint: http://localhost:3501\033[0m"
+echo -e "\033[0;36mDapr HTTP endpoint: http://localhost:3500\033[0m"
 echo -e "\033[0;36mDapr gRPC endpoint: localhost:50001\033[0m"
 echo ""
 
@@ -15,7 +15,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 dapr run \
   --app-id product-service \
   --app-port 8001 \
-  --dapr-http-port 3501 \
+  --dapr-http-port 3500 \
   --dapr-grpc-port 50001 \
   --resources-path "$SCRIPT_DIR/.dapr/components" \
   --config "$SCRIPT_DIR/.dapr/config.yaml" \

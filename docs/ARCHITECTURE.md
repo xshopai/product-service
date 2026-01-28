@@ -93,8 +93,10 @@ The Product Service is a core microservice within the xshopai e-commerce platfor
 | API Docs       | OpenAPI/Swagger (FastAPI built-in) |
 | Messaging      | Dapr Pub/Sub (RabbitMQ backend)    |
 | Main Port      | 8001                               |
-| Dapr HTTP Port | 3501                               |
+| Dapr HTTP Port | 3500                               |
 | Dapr gRPC Port | 50001                              |
+
+> **Note:** All services now use the standard Dapr ports (3500 for HTTP, 50001 for gRPC). This simplifies configuration and works consistently whether running via Docker Compose or individual service runs.
 
 ### 1.4 Directory Structure
 
@@ -220,7 +222,7 @@ flowchart TB
         direction TB
         MongoDB[("🗄️ MongoDB 8.x<br/>Port: 27017")]
         RabbitMQ[("🐰 RabbitMQ<br/>Message Broker<br/>Port: 5672")]
-        Dapr["📡 Dapr Sidecar<br/>HTTP: 3501"]
+        Dapr["📡 Dapr Sidecar<br/>HTTP: 3500"]
         OTEL["📊 OpenTelemetry<br/>Collector"]
     end
 
@@ -309,7 +311,7 @@ flowchart TB
 | Component               | Purpose                       | Port/Connection          |
 | ----------------------- | ----------------------------- | ------------------------ |
 | MongoDB 8.x             | Persistent storage            | 27017 (configurable)     |
-| Dapr Sidecar            | Pub/sub messaging             | HTTP: 3501, gRPC: 50001  |
+| Dapr Sidecar            | Pub/sub messaging             | HTTP: 3500, gRPC: 50001  |
 | RabbitMQ (via Dapr)     | Message broker backend        | Abstracted by Dapr       |
 | OpenTelemetry Collector | Distributed tracing & metrics | 4317 (gRPC), 4318 (HTTP) |
 
