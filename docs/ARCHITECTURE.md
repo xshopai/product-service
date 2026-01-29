@@ -794,13 +794,101 @@ scopes:
 
 ### 5.5 Messaging Abstraction Layer
 
-To support **deployment flexibility**, the Product Service implements a messaging abstraction layer.
+To support **deployment flexibility** across different Azure hosting options, the Product Service implements a **Messaging Abstraction Layer** that decouples business logic from specific messaging infrastructure.
 
-| Deployment Target          | Dapr Available | Recommended Provider |
-| -------------------------- | -------------- | -------------------- |
-| **Azure Container Apps**   | ✅ Yes         | `DaprProvider`       |
-| **Azure Kubernetes (AKS)** | ✅ Yes         | `DaprProvider`       |
-| **Local Development**      | ✅ Optional    | `DaprProvider`       |
+#### 5.5.1 Why Abstraction?
+
+| Deployment Target          | Dapr Available | Recommended Provider | Notes                    |
+| -------------------------- | -------------- | -------------------- | ------------------------ |
+| **Azure Container Apps**   | ✅ Yes         | `DaprProvider`       | Dapr sidecar built-in    |
+| **Azure Kubernetes (AKS)** | ✅ Yes         | `DaprProvider`       | Dapr installed via Helm  |
+| **Azure App Service**      | ❌ No          | `ServiceBusProvider` | Direct SDK required      |
+| **Local Development**      | ✅ Optional    | `DaprProvider`       | Docker Compose with Dapr |
+| **Local (No Dapr)**        | ❌ No          | `RabbitMQProvider`   | Direct RabbitMQ SDK      |
+
+#### 5.5.2 Architecture Diagram
+
+```mermaid
+flowchart TB
+    subgraph ProductService["Product Service"]
+        BL[Business Logic<br/>product_service.py]
+        EP[Event Publisher<br/>publisher.py]
+        MAL[Messaging Abstraction Layer<br/>app/messaging/]
+    end
+
+    subgraph Providers["Provider Implementations"]
+        DP[DaprProvider]
+        SBP[ServiceBusProvider]
+        RMP[RabbitMQProvider]
+    end
+
+    subgraph Infrastructure["Messaging Infrastructure"]
+        DS[Dapr Sidecar]
+        SBSDK[Service Bus SDK]
+        RMSDK[RabbitMQ SDK]
+    end
+
+    subgraph Backends["Message Brokers"]
+        RMQ[RabbitMQ]
+        ASB[Azure Service Bus]
+        KAFKA[Kafka]
+        REDIS[Redis Streams]
+    end
+
+    BL --> EP
+    EP --> MAL
+    MAL --> DP
+    MAL --> SBP
+    MAL --> RMP
+
+    DP --> DS
+    SBP --> SBSDK
+    RMP --> RMSDK
+
+    DS -.-> RMQ
+    DS -.-> ASB
+    DS -.-> KAFKA
+    DS -.-> REDIS
+    SBSDK --> ASB
+    RMSDK --> RMQ
+
+    style ProductService fill:#4A90A4,stroke:#2C5F6E,color:#fff
+    style MAL fill:#8B5CF6,stroke:#6D28D9,color:#fff
+    style DP fill:#10B981,stroke:#059669,color:#fff
+    style SBP fill:#3B82F6,stroke:#1D4ED8,color:#fff
+    style RMP fill:#F59E0B,stroke:#D97706,color:#fff
+    style DS fill:#10B981,stroke:#059669,color:#fff
+```
+
+**Key Points:**
+
+- **DaprProvider** → Dapr Sidecar → **Any broker** (RabbitMQ, Service Bus, Kafka, Redis) via Dapr component config
+- **ServiceBusProvider** → Azure Service Bus SDK → **Azure Service Bus ONLY**
+- **RabbitMQProvider** → Pika SDK → **RabbitMQ ONLY**
+
+#### 5.5.3 Deployment Configuration Matrix
+
+| Environment Variable           | DaprProvider | ServiceBusProvider | RabbitMQProvider |
+| ------------------------------ | ------------ | ------------------ | ---------------- |
+| `MESSAGING_PROVIDER`           | `dapr`       | `servicebus`       | `rabbitmq`       |
+| `DAPR_HTTP_PORT`               | ⚪ Optional  | ❌ Not used        | ❌ Not used      |
+| `SERVICEBUS_CONNECTION_STRING` | ❌ Not used  | ✅ Required        | ❌ Not used      |
+| `SERVICEBUS_TOPIC_NAME`        | ❌ Not used  | ✅ Required        | ❌ Not used      |
+| `RABBITMQ_URL`                 | ❌ Not used  | ❌ Not used        | ✅ Required      |
+| `RABBITMQ_EXCHANGE`            | ❌ Not used  | ❌ Not used        | ⚪ Optional      |
+
+> **Note:** The pubsub component name is configured via Dapr component YAML, not environment variables.
+
+#### 5.5.4 Benefits of Abstraction
+
+| Benefit                    | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| **Deployment Flexibility** | Same codebase deploys to App Service, Container Apps, or AKS |
+| **No Vendor Lock-in**      | Switch message brokers without code changes (via Dapr)       |
+| **Testability**            | Mock provider for unit tests                                 |
+| **Local Development**      | Run with or without Dapr sidecar                             |
+| **Gradual Migration**      | Start with App Service, migrate to Container Apps when ready |
+| **Cost Optimization**      | Choose broker based on pricing and requirements              |
 
 ---
 

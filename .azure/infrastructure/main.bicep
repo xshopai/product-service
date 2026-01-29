@@ -137,8 +137,8 @@ resource mongodbDatabaseSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   }
 }
 
-// Note: jwt-secret is created by Platform Infrastructure deployment (shared across all services)
-// Product-service app will reference the existing jwt-secret from Key Vault
+// Note: xshopai-jwt-secret is created by Platform Infrastructure deployment (shared across all services)
+// Product-service app will reference the existing xshopai-jwt-secret from Key Vault
 
 // Container App for product-service (infrastructure)
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -185,7 +185,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
         {
           name: 'jwt-secret'
-          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/jwt-secret'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/xshopai-jwt-secret'
           identity: managedIdentity.id
         }
       ]

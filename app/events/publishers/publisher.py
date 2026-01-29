@@ -1,6 +1,6 @@
 """
-Dapr Event Publisher for Product Service
-Publishes events via Dapr pub/sub component
+Event Publisher for Product Service
+Uses messaging abstraction layer for deployment flexibility.
 """
 
 import json
@@ -8,26 +8,33 @@ import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-try:
-    from dapr.clients import DaprClient
-    DAPR_AVAILABLE = True
-except ImportError:
-    DAPR_AVAILABLE = False
-
 from app.core.config import config
 from app.core.logger import logger
 from app.middleware.trace_context import get_trace_id
+from app.messaging import create_messaging_provider, MessagingProvider
 
 
-class DaprEventPublisher:
+class EventPublisher:
     """
-    Publisher for sending events via Dapr pub/sub.
+    Publisher for sending events via messaging abstraction layer.
     Handles product lifecycle events for event-driven architecture.
+    
+    Uses MESSAGING_PROVIDER env var to select provider:
+    - 'dapr': Dapr pub/sub (default)
+    - 'servicebus': Azure Service Bus direct
+    - 'rabbitmq': RabbitMQ direct
     """
     
     def __init__(self):
-        self.pubsub_name = 'pubsub'
         self.service_name = config.service_name
+        self._provider: Optional[MessagingProvider] = None
+        
+    @property
+    def provider(self) -> MessagingProvider:
+        """Lazy initialization of messaging provider."""
+        if self._provider is None:
+            self._provider = create_messaging_provider()
+        return self._provider
         
     async def publish_event(
         self,
@@ -36,7 +43,7 @@ class DaprEventPublisher:
         correlation_id: Optional[str] = None
     ) -> bool:
         """
-        Publish an event via Dapr pub/sub.
+        Publish an event via messaging provider.
         
         Args:
             event_type: Type of event (e.g., 'product.created', 'product.updated')
@@ -46,18 +53,11 @@ class DaprEventPublisher:
         Returns:
             True if successful, False otherwise
         """
-        if not DAPR_AVAILABLE:
-            logger.warning(
-                "Dapr SDK not available. Event publishing disabled.",
-                metadata={"event_type": event_type}
-            )
-            return False
-        
         # Get trace ID from context if not provided
         if not correlation_id:
             correlation_id = get_trace_id()
         
-        # Construct event payload
+        # Construct CloudEvents-compliant payload
         event_payload = {
             "specversion": "1.0",
             "type": event_type,
@@ -69,40 +69,12 @@ class DaprEventPublisher:
             "correlationId": correlation_id
         }
         
-        try:
-            # Publish via Dapr
-            with DaprClient() as client:
-                client.publish_event(
-                    pubsub_name=self.pubsub_name,
-                    topic_name=event_type,
-                    data=json.dumps(event_payload),
-                    data_content_type="application/json"
-                )
-            
-            logger.info(
-                f"Published event: {event_type}",
-                metadata={
-                    "correlationId": correlation_id,
-                    "eventType": event_type,
-                    "source": self.service_name,
-                    "transport": "dapr"
-                }
-            )
-            return True
-            
-        except Exception as e:
-            # Log error but don't fail the operation
-            # Events are best-effort delivery
-            logger.error(
-                f"Failed to publish event: {event_type}",
-                metadata={
-                    "correlationId": correlation_id,
-                    "eventType": event_type,
-                    "error": str(e),
-                    "transport": "dapr"
-                }
-            )
-            return False
+        # Publish via messaging provider (Dapr, Service Bus, or RabbitMQ)
+        return await self.provider.publish_event(
+            topic=event_type,
+            event_data=event_payload,
+            correlation_id=correlation_id
+        )
     
     async def publish_product_created(
         self,
@@ -206,4 +178,7 @@ class DaprEventPublisher:
 
 
 # Global publisher instance
-event_publisher = DaprEventPublisher()
+event_publisher = EventPublisher()
+
+# Backwards compatibility alias
+DaprEventPublisher = EventPublisher

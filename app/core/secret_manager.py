@@ -2,6 +2,12 @@
 Dapr Secret Management Service
 Provides secret management using Dapr's secret store building block.
 Falls back to environment variables if Dapr is not available.
+
+Key Vault Secret Naming Convention:
+- xshopai-{resource}-{type}-connection : Database/service connections (server/account level)
+  Examples: xshopai-mysql-server-connection, xshopai-cosmos-account-connection
+- xshopai-{name} : Other platform-wide secrets (e.g., xshopai-jwt-secret)
+- svc-{service}-token : Service identity tokens (e.g., svc-product-token)
 """
 
 import os
@@ -10,6 +16,24 @@ from typing import Dict, Any, Optional
 from dapr.clients import DaprClient
 from app.core.logger import logger
 from app.core.config import config
+
+
+# Key Vault secret name mappings (code name -> Key Vault name)
+# This allows code to use simple names while secrets.json/Key Vault use standardized names
+SECRET_KEY_MAPPING = {
+    # Database connections (account-level for Cosmos DB)
+    'MONGODB_URI': 'xshopai-cosmos-account-connection',
+    'COSMOS_ACCOUNT_CONNECTION': 'xshopai-cosmos-account-connection',
+    # Security
+    'JWT_SECRET': 'xshopai-jwt-secret',
+    # Observability
+    'APPINSIGHTS_CONNECTION': 'xshopai-appinsights-connection',
+    # Service tokens (for service-to-service authentication)
+    'ORDER_SERVICE_TOKEN': 'svc-order-token',
+    'CART_SERVICE_TOKEN': 'svc-cart-token',
+    'INVENTORY_SERVICE_TOKEN': 'svc-inventory-token',
+    'WEB_BFF_TOKEN': 'svc-webbff-token',
+}
 
 
 class SecretManager:
@@ -30,31 +54,47 @@ class SecretManager:
             }
         )
     
+    def _get_kv_key(self, key: str) -> str:
+        """
+        Map a code-level key name to Key Vault secret name.
+        
+        Args:
+            key: Code-level secret name (e.g., 'JWT_SECRET')
+            
+        Returns:
+            Key Vault secret name (e.g., 'xshopai-jwt-secret')
+        """
+        return SECRET_KEY_MAPPING.get(key, key)
+    
     def get_secret(self, secret_name: str) -> Optional[str]:
         """
         Get a secret value from Dapr secret store.
         
         Args:
-            secret_name: Name of the secret to retrieve
+            secret_name: Name of the secret to retrieve (code-level name)
             
         Returns:
             Secret value as string, or None if not found
         """
+        # Map code-level name to Key Vault name
+        kv_key = self._get_kv_key(secret_name)
+        
         try:
             with DaprClient() as client:
                 response = client.get_secret(
                     store_name=self.secret_store_name,
-                    key=secret_name
+                    key=kv_key
                 )
                 
                 # Dapr returns a dictionary with the secret key
-                if response.secret and secret_name in response.secret:
-                    value = response.secret[secret_name]
+                if response.secret and kv_key in response.secret:
+                    value = response.secret[kv_key]
                     logger.debug(
                         f"Retrieved secret from Dapr",
                         metadata={
                             "event": "secret_retrieved",
                             "secret_name": secret_name,
+                            "kv_key": kv_key,
                             "source": "dapr",
                             "store": self.secret_store_name
                         }
@@ -66,6 +106,7 @@ class SecretManager:
                     metadata={
                         "event": "secret_not_found",
                         "secret_name": secret_name,
+                        "kv_key": kv_key,
                         "store": self.secret_store_name
                     }
                 )
