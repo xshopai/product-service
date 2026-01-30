@@ -263,8 +263,9 @@ echo -e "${CYAN}Service:${NC}              $SERVICE_NAME"
 echo -e "${CYAN}Port:${NC}                 $APP_PORT"
 echo ""
 
-read -p "Do you want to proceed with deployment? (y/N): " CONFIRM
-if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+read -p "Do you want to proceed with deployment? (Y/n): " CONFIRM
+CONFIRM=${CONFIRM:-Y}
+if [[ "$CONFIRM" =~ ^[Nn]$ ]]; then
     print_warning "Deployment cancelled by user"
     exit 0
 fi
