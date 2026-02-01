@@ -40,10 +40,10 @@ scopes:
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
 metadata:
-  name: inventory-updated-subscription
+  name: inventory-stock-updated-subscription
 spec:
-  topic: inventory.updated
-  route: /dapr/events/inventory.updated
+  topic: inventory.stock.updated
+  route: /dapr/events/inventory.stock.updated
   pubsubname: pubsub
   metadata:
     rawPayload: 'false'
@@ -55,8 +55,21 @@ kind: Subscription
 metadata:
   name: inventory-low-stock-subscription
 spec:
-  topic: inventory.low_stock
-  route: /dapr/events/inventory.low_stock
+  topic: inventory.low.stock
+  route: /dapr/events/inventory.low.stock
+  pubsubname: pubsub
+  metadata:
+    rawPayload: 'false'
+scopes:
+  - product-service
+---
+apiVersion: dapr.io/v1alpha1
+kind: Subscription
+metadata:
+  name: inventory-out-of-stock-subscription
+spec:
+  topic: inventory.out.of.stock
+  route: /dapr/events/inventory.out.of.stock
   pubsubname: pubsub
   metadata:
     rawPayload: 'false'

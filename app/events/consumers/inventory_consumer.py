@@ -119,6 +119,48 @@ class InventoryEventConsumer:
                 }
             )
             return {"status": "error", "message": str(e)}
+    
+    async def handle_inventory_out_of_stock(self, event_data: Dict[str, Any]) -> Dict[str, str]:
+        """
+        Handle inventory.out.of.stock event.
+        Marks product as out of stock when inventory is depleted.
+        
+        Args:
+            event_data: CloudEvents formatted event data
+            
+        Returns:
+            Response dict with status
+        """
+        try:
+            await self.initialize()
+            
+            correlation_id = event_data.get("correlationId", "no-correlation")
+            data = event_data.get("data", {})
+            
+            product_id = data.get("productId")
+            
+            logger.info(
+                f"Processing inventory.out.of.stock event for product {product_id}",
+                metadata={
+                    "correlationId": correlation_id,
+                    "productId": product_id
+                }
+            )
+            
+            # TODO: Add logic to mark product as out of stock
+            # Example: Set is_available=false, trigger out-of-stock notification
+            
+            return {"status": "success"}
+            
+        except Exception as e:
+            logger.error(
+                f"Error processing inventory.out.of.stock event: {str(e)}",
+                metadata={
+                    "correlationId": event_data.get("correlationId", "no-correlation"),
+                    "error": str(e)
+                }
+            )
+            return {"status": "error", "message": str(e)}
 
 
 # Global consumer instance

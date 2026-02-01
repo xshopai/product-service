@@ -232,14 +232,20 @@ else
     print_success "Database '$DB_NAME' created"
 fi
 
-# Get Cosmos DB connection string
-print_info "Retrieving Cosmos DB connection string..."
-COSMOS_CONNECTION_STRING=$(az cosmosdb keys list \
-    --name "$COSMOS_ACCOUNT" \
-    --resource-group "$RESOURCE_GROUP" \
-    --type connection-strings \
-    --query "connectionStrings[0].connectionString" \
-    --output tsv)
+# Retrieve Cosmos DB connection string from Key Vault
+# Note: We pass this as env var because Dapr sidecar isn't ready during app startup
+# This is required for FastAPI lifespan startup (connect_to_mongo called before Dapr is available)
+print_info "Retrieving Cosmos DB connection string from Key Vault..."
+COSMOS_CONNECTION_STRING=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-cosmos-account-connection" --query "value" -o tsv 2>/dev/null || echo "")
+if [ -z "$COSMOS_CONNECTION_STRING" ]; then
+    print_warning "Connection string not in Key Vault, retrieving directly from Cosmos DB..."
+    COSMOS_CONNECTION_STRING=$(az cosmosdb keys list \
+        --name "$COSMOS_ACCOUNT" \
+        --resource-group "$RESOURCE_GROUP" \
+        --type connection-strings \
+        --query "connectionStrings[0].connectionString" \
+        --output tsv)
+fi
 
 if [ -z "$COSMOS_CONNECTION_STRING" ]; then
     print_error "Could not retrieve Cosmos DB connection string"
@@ -303,15 +309,31 @@ print_header "Step 2: Deploying Container App"
 # Get ACR credentials
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
 
-# Build environment variables for FastAPI/uvicorn
-ENV_VARS=("ENVIRONMENT=production")
-ENV_VARS+=("PORT=$APP_PORT")
-ENV_VARS+=("MONGODB_URI=$COSMOS_CONNECTION_STRING")
-ENV_VARS+=("MONGODB_DB_NAME=$DB_NAME")
-ENV_VARS+=("DAPR_HTTP_PORT=$DAPR_HTTP_PORT")
-ENV_VARS+=("DAPR_GRPC_PORT=$DAPR_GRPC_PORT")
-ENV_VARS+=("DAPR_PUBSUB_NAME=$DAPR_PUBSUB_NAME")
-ENV_VARS+=("LOG_LEVEL=info")
+# Retrieve Application Insights connection string from Key Vault
+# This ensures Azure Monitor telemetry works even before Dapr sidecar is ready
+print_info "Retrieving Application Insights connection string from Key Vault..."
+APP_INSIGHTS_CONN=$(az keyvault secret show --vault-name "$KEY_VAULT" --name "xshopai-appinsights-connection" --query "value" -o tsv 2>/dev/null || echo "")
+[ -n "$APP_INSIGHTS_CONN" ] && print_success "Application Insights connection string retrieved" || print_warning "Application Insights not configured (telemetry disabled)"
+
+# Environment variables for the container
+# Note: MONGODB_URI is passed as env var because Dapr sidecar isn't ready during FastAPI lifespan startup
+# Other secrets (JWT, service tokens) are read from Dapr secretstore after sidecar is ready
+# App Insights connection string is also passed as env var to avoid race condition with Dapr sidecar startup
+ENV_VARS=(
+    "ENVIRONMENT=production"
+    "NAME=$SERVICE_NAME"
+    "PORT=$APP_PORT"
+    "MESSAGING_PROVIDER=dapr"
+    "MONGODB_URI=$COSMOS_CONNECTION_STRING"
+    "MONGODB_DB_NAME=$DB_NAME"
+    "DAPR_HTTP_PORT=$DAPR_HTTP_PORT"
+    "DAPR_GRPC_PORT=$DAPR_GRPC_PORT"
+    "DAPR_PUBSUB_NAME=$DAPR_PUBSUB_NAME"
+    "LOG_LEVEL=info"
+    "OTEL_SERVICE_NAME=$SERVICE_NAME"
+    "OTEL_RESOURCE_ATTRIBUTES=service.version=1.0.0"
+    "APPLICATIONINSIGHTS_CONNECTION_STRING=$APP_INSIGHTS_CONN"
+)
 
 # Check if container app exists
 if az containerapp show --name "$CONTAINER_APP_NAME" --resource-group "$RESOURCE_GROUP" &> /dev/null; then
@@ -418,4 +440,5 @@ echo -e "   View Dapr logs:   ${BLUE}az containerapp logs show --name $CONTAINER
 echo -e "   Delete app:       ${BLUE}az containerapp delete --name $CONTAINER_APP_NAME --resource-group $RESOURCE_GROUP --yes${NC}"
 echo ""
 echo -e "${CYAN}Note:${NC} Product Service uses MongoDB (Cosmos DB) - no migrations needed."
+echo -e "${CYAN}      ${NC}Database connection passed as env var (Dapr not ready at FastAPI startup)."
 echo ""

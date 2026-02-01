@@ -118,17 +118,17 @@ async def handle_review_deleted(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/inventory.updated")
-async def handle_inventory_updated(request: Request):
+@router.post("/events/inventory.stock.updated")
+async def handle_inventory_stock_updated(request: Request):
     """
-    Handle inventory.updated event from Dapr pub/sub.
-    Called by Dapr when inventory is updated.
+    Handle inventory.stock.updated event from Dapr pub/sub.
+    Called by Dapr when inventory stock is updated.
     """
     try:
         event_data = await request.json()
         
         logger.info(
-            "Received inventory.updated event",
+            "Received inventory.stock.updated event",
             metadata={
                 "correlationId": event_data.get("correlationId", "no-correlation"),
                 "eventId": event_data.get("id")
@@ -141,23 +141,23 @@ async def handle_inventory_updated(request: Request):
         
     except Exception as e:
         logger.error(
-            f"Error handling inventory.updated event: {str(e)}",
+            f"Error handling inventory.stock.updated event: {str(e)}",
             metadata={"error": str(e)}
         )
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/inventory.low_stock")
+@router.post("/events/inventory.low.stock")
 async def handle_inventory_low_stock(request: Request):
     """
-    Handle inventory.low_stock event from Dapr pub/sub.
+    Handle inventory.low.stock event from Dapr pub/sub.
     Called by Dapr when inventory is running low.
     """
     try:
         event_data = await request.json()
         
         logger.info(
-            "Received inventory.low_stock event",
+            "Received inventory.low.stock event",
             metadata={
                 "correlationId": event_data.get("correlationId", "no-correlation"),
                 "eventId": event_data.get("id")
@@ -170,7 +170,36 @@ async def handle_inventory_low_stock(request: Request):
         
     except Exception as e:
         logger.error(
-            f"Error handling inventory.low_stock event: {str(e)}",
+            f"Error handling inventory.low.stock event: {str(e)}",
+            metadata={"error": str(e)}
+        )
+        return {"status": "SUCCESS"}
+
+
+@router.post("/events/inventory.out.of.stock")
+async def handle_inventory_out_of_stock(request: Request):
+    """
+    Handle inventory.out.of.stock event from Dapr pub/sub.
+    Called by Dapr when inventory is completely out of stock.
+    """
+    try:
+        event_data = await request.json()
+        
+        logger.info(
+            "Received inventory.out.of.stock event",
+            metadata={
+                "correlationId": event_data.get("correlationId", "no-correlation"),
+                "eventId": event_data.get("id")
+            }
+        )
+        
+        result = await inventory_event_consumer.handle_inventory_out_of_stock(event_data)
+        
+        return {"status": "SUCCESS"}
+        
+    except Exception as e:
+        logger.error(
+            f"Error handling inventory.out.of.stock event: {str(e)}",
             metadata={"error": str(e)}
         )
         return {"status": "SUCCESS"}

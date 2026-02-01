@@ -7,7 +7,7 @@ Key Vault Secret Naming Convention:
 - xshopai-{resource}-{type}-connection : Database/service connections (server/account level)
   Examples: xshopai-mysql-server-connection, xshopai-cosmos-account-connection
 - xshopai-{name} : Other platform-wide secrets (e.g., xshopai-jwt-secret)
-- svc-{service}-token : Service identity tokens (e.g., svc-product-token)
+- xshopai-svc-{service}-token : Service identity tokens (e.g., xshopai-svc-product-token)
 """
 
 import os
@@ -29,10 +29,10 @@ SECRET_KEY_MAPPING = {
     # Observability
     'APPINSIGHTS_CONNECTION': 'xshopai-appinsights-connection',
     # Service tokens (for service-to-service authentication)
-    'ORDER_SERVICE_TOKEN': 'svc-order-token',
-    'CART_SERVICE_TOKEN': 'svc-cart-token',
-    'INVENTORY_SERVICE_TOKEN': 'svc-inventory-token',
-    'WEB_BFF_TOKEN': 'svc-webbff-token',
+    'ORDER_SERVICE_TOKEN': 'xshopai-svc-order-token',
+    'CART_SERVICE_TOKEN': 'xshopai-svc-cart-token',
+    'INVENTORY_SERVICE_TOKEN': 'xshopai-svc-inventory-token',
+    'WEB_BFF_TOKEN': 'xshopai-svc-webbff-token',
 }
 
 
