@@ -3,11 +3,11 @@ kind: Subscription
 metadata:
   name: review-created-subscription
 spec:
-  topic: review-events
+  topic: review.created
   route: /dapr/events/review.created
   pubsubname: pubsub
   metadata:
-    rawPayload: "false"
+    rawPayload: 'false'
 scopes:
   - product-service
 ---
@@ -16,11 +16,11 @@ kind: Subscription
 metadata:
   name: review-updated-subscription
 spec:
-  topic: review-events
+  topic: review.updated
   route: /dapr/events/review.updated
   pubsubname: pubsub
   metadata:
-    rawPayload: "false"
+    rawPayload: 'false'
 scopes:
   - product-service
 ---
@@ -29,11 +29,11 @@ kind: Subscription
 metadata:
   name: review-deleted-subscription
 spec:
-  topic: review-events
+  topic: review.deleted
   route: /dapr/events/review.deleted
   pubsubname: pubsub
   metadata:
-    rawPayload: "false"
+    rawPayload: 'false'
 scopes:
   - product-service
 ---
@@ -46,7 +46,7 @@ spec:
   route: /dapr/events/inventory.updated
   pubsubname: pubsub
   metadata:
-    rawPayload: "false"
+    rawPayload: 'false'
 scopes:
   - product-service
 ---
@@ -59,6 +59,6 @@ spec:
   route: /dapr/events/inventory.low_stock
   pubsubname: pubsub
   metadata:
-    rawPayload: "false"
+    rawPayload: 'false'
 scopes:
   - product-service
