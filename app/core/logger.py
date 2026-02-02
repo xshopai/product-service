@@ -76,8 +76,9 @@ class ColorFormatter(logging.Formatter):
             f"{trace_id_str}: {record.getMessage()}{meta_str}"
         )
 
-        # Apply color if in development and terminal supports it
-        if IS_DEVELOPMENT and sys.stdout.isatty() and record.levelname in self.COLORS:
+        # Always apply ANSI color codes - Azure Container Apps log viewer supports them
+        # This enables proper color-coded logs in Azure Portal log streaming
+        if record.levelname in self.COLORS:
             color = self.COLORS[record.levelname]
             base_msg = f"{color}{base_msg}{self.RESET}"
 
@@ -85,7 +86,17 @@ class ColorFormatter(logging.Formatter):
 
 
 class JsonFormatter(logging.Formatter):
-    """JSON formatter for production logging"""
+    """JSON formatter for production logging with ANSI color support for log viewers"""
+
+    # ANSI color codes for log level highlighting
+    COLORS = {
+        "DEBUG": "\033[94m",     # Blue
+        "INFO": "\033[92m",      # Green
+        "WARNING": "\033[93m",   # Yellow
+        "ERROR": "\033[91m",     # Red
+        "CRITICAL": "\033[95m",  # Magenta
+    }
+    RESET = "\033[0m"
 
     def format(self, record):
         trace_id = getattr(record, "traceId", None) or get_trace_id()
@@ -111,7 +122,14 @@ class JsonFormatter(logging.Formatter):
             ):
                 log_record[key] = value
 
-        return json.dumps(log_record, default=str)
+        json_output = json.dumps(log_record, default=str)
+        
+        # Apply ANSI color codes for Azure Container Apps log viewer
+        if record.levelname in self.COLORS:
+            color = self.COLORS[record.levelname]
+            json_output = f"{color}{json_output}{self.RESET}"
+        
+        return json_output
 
 
 class StandardLogger:
