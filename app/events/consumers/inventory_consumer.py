@@ -21,7 +21,7 @@ class InventoryEventConsumer:
     
     async def initialize(self):
         """Initialize database connection and repository"""
-        if not self.db:
+        if self.db is None:
             # Lazy import to avoid circular dependency
             from app.db.mongodb import get_database
             self.db = await get_database()
@@ -33,7 +33,7 @@ class InventoryEventConsumer:
         Updates product stock status when inventory changes.
         
         Args:
-            event_data: CloudEvents formatted event data
+            event_data: CloudEvents formatted event data (may be double-wrapped by Dapr)
             
         Returns:
             Response dict with status
@@ -41,17 +41,33 @@ class InventoryEventConsumer:
         try:
             await self.initialize()
             
-            correlation_id = event_data.get("correlationId", "no-correlation")
-            data = event_data.get("data", {})
+            # Dapr delivers CloudEvents envelope. The publisher may also wrap in CloudEvents.
+            # Structure: Dapr envelope -> Publisher CloudEvents envelope -> Actual data
+            # Need to unwrap potentially nested CloudEvents structure
             
-            # SKU is the identifier that links product variants to inventory
-            sku = data.get("sku")
-            stock_level = data.get("quantity")  # Changed from stockLevel
+            inner_data = event_data.get("data", {})
+            
+            # Check if inner_data is another CloudEvents envelope (has specversion)
+            if isinstance(inner_data, dict) and "specversion" in inner_data:
+                # Double-wrapped: Dapr envelope contains publisher's CloudEvents envelope
+                correlation_id = inner_data.get("correlationId", inner_data.get("correlationid", "no-correlation"))
+                payload = inner_data.get("data", {})
+            else:
+                # Single-wrapped: Dapr envelope contains raw payload
+                correlation_id = event_data.get("correlationId", event_data.get("correlationid", "no-correlation"))
+                payload = inner_data
+            
+            # Extract actual inventory data
+            sku = payload.get("sku")
+            stock_level = payload.get("quantity")
             
             if not sku or stock_level is None:
                 logger.warning(
                     "Invalid inventory.updated event - missing required fields",
-                    metadata={"correlationId": correlation_id}
+                    metadata={
+                        "correlationId": correlation_id,
+                        "payloadKeys": list(payload.keys()) if isinstance(payload, dict) else "not-a-dict"
+                    }
                 )
                 return {"status": "error", "message": "Missing required fields"}
             
