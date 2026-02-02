@@ -44,10 +44,11 @@ class InventoryEventConsumer:
             correlation_id = event_data.get("correlationId", "no-correlation")
             data = event_data.get("data", {})
             
-            product_id = data.get("productId")
-            stock_level = data.get("stockLevel")
+            # SKU is the identifier that links product variants to inventory
+            sku = data.get("sku")
+            stock_level = data.get("quantity")  # Changed from stockLevel
             
-            if not product_id or stock_level is None:
+            if not sku or stock_level is None:
                 logger.warning(
                     "Invalid inventory.updated event - missing required fields",
                     metadata={"correlationId": correlation_id}
@@ -55,16 +56,16 @@ class InventoryEventConsumer:
                 return {"status": "error", "message": "Missing required fields"}
             
             logger.info(
-                f"Processing inventory.updated event for product {product_id}",
+                f"Processing inventory.updated event for SKU {sku}",
                 metadata={
                     "correlationId": correlation_id,
-                    "productId": product_id,
+                    "sku": sku,
                     "stockLevel": stock_level
                 }
             )
             
             # TODO: Add logic to update product stock status
-            # Example: Update is_available, stock_level, etc.
+            # Find product by variant SKU and update availabilityStatus
             
             return {"status": "success"}
             
@@ -95,18 +96,18 @@ class InventoryEventConsumer:
             correlation_id = event_data.get("correlationId", "no-correlation")
             data = event_data.get("data", {})
             
-            product_id = data.get("productId")
+            sku = data.get("sku")
             
             logger.info(
-                f"Processing inventory.low_stock event for product {product_id}",
+                f"Processing inventory.low_stock event for SKU {sku}",
                 metadata={
                     "correlationId": correlation_id,
-                    "productId": product_id
+                    "sku": sku
                 }
             )
             
             # TODO: Add logic to handle low stock notification
-            # Example: Set low_stock flag, trigger reorder notification
+            # Find product by variant SKU and set low_stock flag
             
             return {"status": "success"}
             
@@ -137,18 +138,18 @@ class InventoryEventConsumer:
             correlation_id = event_data.get("correlationId", "no-correlation")
             data = event_data.get("data", {})
             
-            product_id = data.get("productId")
+            sku = data.get("sku")
             
             logger.info(
-                f"Processing inventory.out.of.stock event for product {product_id}",
+                f"Processing inventory.out.of.stock event for SKU {sku}",
                 metadata={
                     "correlationId": correlation_id,
-                    "productId": product_id
+                    "sku": sku
                 }
             )
             
             # TODO: Add logic to mark product as out of stock
-            # Example: Set is_available=false, trigger out-of-stock notification
+            # Find product by variant SKU and set availabilityStatus
             
             return {"status": "success"}
             
