@@ -4,13 +4,41 @@ Handles incoming events from Dapr pub/sub
 """
 
 from fastapi import APIRouter, Request, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from app.events.consumers.review_consumer import review_event_consumer
 from app.events.consumers.inventory_consumer import inventory_event_consumer
 from app.core.logger import logger
 
 router = APIRouter(prefix="/dapr", tags=["dapr-pubsub"])
+
+# Programmatic subscription definitions for Azure Container Apps.
+# ACA doesn't support declarative YAML subscriptions - only this endpoint.
+# For local development, Dapr CLI uses .dapr/components/subscriptions.yaml instead.
+# IMPORTANT: Keep both in sync when adding/removing subscriptions.
+SUBSCRIPTIONS: List[Dict[str, str]] = [
+    {"pubsubname": "pubsub", "topic": "inventory.stock.updated", "route": "/dapr/events/inventory.stock.updated"},
+    {"pubsubname": "pubsub", "topic": "inventory.low.stock", "route": "/dapr/events/inventory.low.stock"},
+    {"pubsubname": "pubsub", "topic": "inventory.out.of.stock", "route": "/dapr/events/inventory.out.of.stock"},
+    {"pubsubname": "pubsub", "topic": "review.created", "route": "/dapr/events/review.created"},
+    {"pubsubname": "pubsub", "topic": "review.updated", "route": "/dapr/events/review.updated"},
+    {"pubsubname": "pubsub", "topic": "review.deleted", "route": "/dapr/events/review.deleted"},
+]
+
+
+@router.get("/subscribe")
+async def get_subscriptions() -> List[Dict[str, str]]:
+    """
+    Dapr subscription endpoint (programmatic).
+    Returns the list of pub/sub subscriptions for this service.
+    Dapr sidecar calls this endpoint at startup to register subscriptions.
+    
+    Note: This is required for Azure Container Apps where declarative
+    subscriptions (YAML) are not supported. For local development,
+    the .dapr/components/subscriptions.yaml is used instead.
+    """
+    logger.info("Dapr requested subscription list", metadata={"count": len(SUBSCRIPTIONS)})
+    return SUBSCRIPTIONS
 
 
 @router.get("/config")
