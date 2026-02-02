@@ -6,10 +6,6 @@ spec:
   topic: review.created
   route: /dapr/events/review.created
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
@@ -19,10 +15,6 @@ spec:
   topic: review.updated
   route: /dapr/events/review.updated
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
@@ -32,10 +24,6 @@ spec:
   topic: review.deleted
   route: /dapr/events/review.deleted
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
@@ -45,10 +33,6 @@ spec:
   topic: inventory.stock.updated
   route: /dapr/events/inventory.stock.updated
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
@@ -58,10 +42,6 @@ spec:
   topic: inventory.low.stock
   route: /dapr/events/inventory.low.stock
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service
 ---
 apiVersion: dapr.io/v1alpha1
 kind: Subscription
@@ -71,7 +51,3 @@ spec:
   topic: inventory.out.of.stock
   route: /dapr/events/inventory.out.of.stock
   pubsubname: pubsub
-  metadata:
-    rawPayload: 'false'
-scopes:
-  - product-service

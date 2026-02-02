@@ -23,6 +23,20 @@ logging.getLogger('azure.monitor.opentelemetry.exporter').setLevel(logging.WARNI
 logging.getLogger('opentelemetry').setLevel(logging.WARNING)
 logging.getLogger('urllib3').setLevel(logging.WARNING)
 
+# ============================================================================
+# CRITICAL: Instrument PyMongo BEFORE any motor/pymongo imports happen!
+# The instrumentation must happen before the MongoDB client is created.
+# ============================================================================
+try:
+    from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
+    if not PymongoInstrumentor().is_instrumented_by_opentelemetry:
+        PymongoInstrumentor().instrument()
+        _logger.info("PyMongo instrumentation initialized EARLY (before motor import)")
+except ImportError as e:
+    _logger.warning(f"PyMongo instrumentation package not available: {e}")
+except Exception as e:
+    _logger.warning(f"Failed to initialize early PyMongo instrumentation: {e}")
+
 
 def setup_azure_monitor() -> bool:
     """
@@ -64,8 +78,12 @@ def setup_azure_monitor() -> bool:
                 "fastapi": {"enabled": True},
                 "requests": {"enabled": True},
                 "logging": {"enabled": True},
+                "pymongo": {"enabled": True},  # Enable pymongo in options
             },
         )
+        
+        # Note: PyMongo instrumentation is done EARLY at top of file
+        # before any motor/pymongo imports to ensure all connections are traced
         
         # Create a test span to verify tracing is working
         from opentelemetry import trace

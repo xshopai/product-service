@@ -1,241 +1,213 @@
 """
-Dapr Secret Management Service
-Provides secret management using Dapr's secret store building block.
-Falls back to environment variables if Dapr is not available.
+Secret Manager Utility
+Manages secrets retrieval using Dapr Secret Store building block
 
-Key Vault Secret Naming Convention:
-- xshopai-{resource}-{type}-connection : Database/service connections (server/account level)
-  Examples: xshopai-mysql-server-connection, xshopai-cosmos-account-connection
-- xshopai-{name} : Other platform-wide secrets (e.g., xshopai-jwt-secret)
-- xshopai-svc-{service}-token : Service identity tokens (e.g., xshopai-svc-product-token)
+Naming Convention:
+- Application code uses UPPER_SNAKE_CASE environment variables
+- Local dev (.env, .dapr/secrets.json) uses UPPER_SNAKE_CASE
+- Azure Key Vault uses lower-kebab-case (aca.sh translates at deployment time)
+
+Product Service Required Secrets:
+- COSMOS_ACCOUNT_CONNECTION : Cosmos DB (MongoDB API) connection string
+- JWT_SECRET                : JWT signing secret
+- APPINSIGHTS_CONNECTION    : Application Insights connection string
+- SERVICE_PRODUCT_TOKEN     : Product service auth token
+- SERVICE_ORDER_TOKEN       : Order service auth token
+- SERVICE_CART_TOKEN        : Cart service auth token
+- SERVICE_WEBBFF_TOKEN      : Web BFF auth token
 """
 
 import os
 from typing import Dict, Any, Optional
+from urllib.parse import urlparse
 
-from dapr.clients import DaprClient
 from app.core.logger import logger
 from app.core.config import config
 
 
-# Key Vault secret name mappings (code name -> Key Vault name)
-# This allows code to use simple names while secrets.json/Key Vault use standardized names
-SECRET_KEY_MAPPING = {
-    # Database connections (account-level for Cosmos DB)
-    'MONGODB_URI': 'xshopai-cosmos-account-connection',
-    'COSMOS_ACCOUNT_CONNECTION': 'xshopai-cosmos-account-connection',
-    # Security
-    'JWT_SECRET': 'xshopai-jwt-secret',
-    # Observability
-    'APPINSIGHTS_CONNECTION': 'xshopai-appinsights-connection',
-    # Service tokens (for service-to-service authentication)
-    'ORDER_SERVICE_TOKEN': 'xshopai-svc-order-token',
-    'CART_SERVICE_TOKEN': 'xshopai-svc-cart-token',
-    'INVENTORY_SERVICE_TOKEN': 'xshopai-svc-inventory-token',
-    'WEB_BFF_TOKEN': 'xshopai-svc-webbff-token',
-}
+# Secrets required by product-service (UPPER_SNAKE_CASE everywhere)
+REQUIRED_SECRETS = [
+    'COSMOS_ACCOUNT_CONNECTION',
+    'JWT_SECRET',
+    'APPINSIGHTS_CONNECTION',
+    'SERVICE_PRODUCT_TOKEN',
+    'SERVICE_ORDER_TOKEN',
+    'SERVICE_CART_TOKEN',
+    'SERVICE_WEBBFF_TOKEN',
+]
 
 
 class SecretManager:
     """
-    Secret manager that uses Dapr secret store building block.
+    Unified secret manager - same key names everywhere.
+    Tries Dapr first, falls back to env vars.
     """
     
     def __init__(self):
-        self.environment = config.environment
         self.secret_store_name = 'secretstore'
+        self._dapr_client = None
+        self._cache: Dict[str, str] = {}
         
         logger.info(
             f"Secret manager initialized",
             metadata={
                 "event": "secret_manager_init",
-                "environment": self.environment,
+                "environment": config.environment,
                 "secret_store": self.secret_store_name
             }
         )
     
-    def _get_kv_key(self, key: str) -> str:
-        """
-        Map a code-level key name to Key Vault secret name.
-        
-        Args:
-            key: Code-level secret name (e.g., 'JWT_SECRET')
-            
-        Returns:
-            Key Vault secret name (e.g., 'xshopai-jwt-secret')
-        """
-        return SECRET_KEY_MAPPING.get(key, key)
+    @property
+    def dapr_client(self):
+        """Lazy load Dapr client"""
+        if self._dapr_client is None:
+            try:
+                from dapr.clients import DaprClient
+                self._dapr_client = DaprClient()
+            except Exception as e:
+                logger.debug(f"Dapr client not available: {e}")
+                self._dapr_client = False
+        return self._dapr_client if self._dapr_client else None
     
-    def get_secret(self, secret_name: str) -> Optional[str]:
+    def get_secret(self, key: str) -> Optional[str]:
         """
-        Get a secret value from Dapr secret store.
+        Get secret by key name (UPPER_SNAKE_CASE).
         
         Args:
-            secret_name: Name of the secret to retrieve (code-level name)
-            
-        Returns:
-            Secret value as string, or None if not found
-        """
-        # Map code-level name to Key Vault name
-        kv_key = self._get_kv_key(secret_name)
+            key: Secret key (e.g., 'JWT_SECRET')
         
-        try:
-            with DaprClient() as client:
-                response = client.get_secret(
+        Returns:
+            Secret value or None if not found
+        """
+        # Check cache
+        if key in self._cache:
+            return self._cache[key]
+        
+        value = None
+        
+        # Try Dapr Secret Store first
+        if self.dapr_client:
+            try:
+                response = self.dapr_client.get_secret(
                     store_name=self.secret_store_name,
-                    key=kv_key
+                    key=key
                 )
-                
-                # Dapr returns a dictionary with the secret key
-                if response.secret and kv_key in response.secret:
-                    value = response.secret[kv_key]
-                    logger.debug(
-                        f"Retrieved secret from Dapr",
-                        metadata={
-                            "event": "secret_retrieved",
-                            "secret_name": secret_name,
-                            "kv_key": kv_key,
-                            "source": "dapr",
-                            "store": self.secret_store_name
-                        }
-                    )
-                    return str(value)
-                
-                logger.warning(
-                    f"Secret not found in Dapr store",
-                    metadata={
-                        "event": "secret_not_found",
-                        "secret_name": secret_name,
-                        "kv_key": kv_key,
-                        "store": self.secret_store_name
-                    }
-                )
-                return None
-                
-        except Exception as e:
-            logger.error(
-                f"Failed to get secret from Dapr: {str(e)}",
-                metadata={
-                    "event": "secret_retrieval_error",
-                    "secret_name": secret_name,
-                    "error": str(e),
-                    "store": self.secret_store_name
-                }
+                if response and response.secret:
+                    value = response.secret.get(key)
+                    if value:
+                        logger.debug(f"Secret '{key}' loaded from Dapr")
+            except Exception as e:
+                logger.debug(f"Dapr lookup failed for '{key}': {e}")
+        
+        # Fallback to environment variable (same key name)
+        if not value:
+            value = os.environ.get(key)
+            if value:
+                logger.debug(f"Secret '{key}' loaded from env")
+        
+        if value:
+            self._cache[key] = value
+            return value
+        
+        return None
+    
+    def get_database_config(self) -> Dict[str, Any]:
+        """
+        Get MongoDB database configuration.
+        
+        Returns:
+            Dictionary with 'connection_string' and 'database' keys
+        """
+        # Try MONGODB_URI first (set by aca.sh)
+        uri = os.environ.get('MONGODB_URI')
+        
+        # Fall back to COSMOS_ACCOUNT_CONNECTION via Dapr
+        if not uri:
+            uri = self.get_secret('COSMOS_ACCOUNT_CONNECTION')
+        
+        if not uri:
+            raise RuntimeError(
+                "MongoDB connection string not found. "
+                "Set MONGODB_URI env var or COSMOS_ACCOUNT_CONNECTION in Dapr secret store."
             )
-            raise
-
-
-# Global instance
-secret_manager = SecretManager()
-
-
-def get_database_config() -> Dict[str, Any]:
-    """
-    Get database configuration from secrets or environment variables.
-    
-    Priority order:
-    1. MONGODB_URI environment variable (Azure Container Apps)
-    2. mongodb-uri secret from Dapr secret store (local development)
-    
-    Database name is extracted from the URI path (e.g., mongodb://host/dbname?params)
-    
-    Returns:
-        Dictionary with 'connection_string' and 'database' keys
-    """
-    from urllib.parse import urlparse
-    
-    # Try environment variable first (Azure Container Apps)
-    mongodb_uri = os.environ.get('MONGODB_URI')
-    
-    # Fall back to Dapr secret store (local development)
-    if not mongodb_uri:
-        mongodb_uri = secret_manager.get_secret('MONGODB_URI')
-    
-    if not mongodb_uri:
-        raise ValueError(
-            "MongoDB connection string not found. "
-            "Set MONGODB_URI env var or MONGODB_URI in Dapr secret store."
-        )
-    
-    # Extract database name from URI path or environment variable
-    # URI format: mongodb://user:pass@host:port/database?params
-    # or: mongodb+srv://user:pass@host/database?params
-    parsed = urlparse(mongodb_uri)
-    database = parsed.path.lstrip('/') if parsed.path and parsed.path != '/' else None
-    
-    # Check for MONGODB_DB_NAME environment variable (used by Azure Container Apps)
-    if not database:
-        database = os.environ.get('MONGODB_DB_NAME')
-    
-    if not database:
-        database = 'product_service_db'  # Default fallback
-        logger.warning(
-            f"No database name in URI or MONGODB_DB_NAME env var, using default: {database}",
-            metadata={"event": "db_name_fallback", "database": database}
-        )
-    
-    # Determine source for logging
-    source = 'env' if os.environ.get('MONGODB_URI') else 'dapr'
-    
-    logger.info(
-        f"Database config retrieved",
-        metadata={
-            "event": "db_config_retrieved",
-            "source": source,
-            "database": database,
-            "has_connection_string": True
+        
+        # Extract database name from URI or env var
+        parsed = urlparse(uri)
+        database = parsed.path.lstrip('/') if parsed.path and parsed.path != '/' else None
+        
+        if not database:
+            database = os.environ.get('MONGODB_DB_NAME', 'product_service_db')
+        
+        return {
+            'connection_string': uri,
+            'database': database,
         }
-    )
     
-    return {
-        'connection_string': mongodb_uri,
-        'database': database,
-    }
+    def get_jwt_config(self) -> Dict[str, Any]:
+        """Get JWT configuration."""
+        jwt_secret = os.environ.get('JWT_SECRET') or self.get_secret('JWT_SECRET')
+        
+        if not jwt_secret:
+            logger.warning("JWT secret not found, using default (NOT SECURE)")
+            jwt_secret = 'your_jwt_secret_key'
+        
+        return {
+            'secret': jwt_secret,
+            'algorithm': os.environ.get('JWT_ALGORITHM', 'HS256'),
+            'expiration': int(os.environ.get('JWT_EXPIRATION', '3600')),
+            'issuer': os.environ.get('JWT_ISSUER', 'auth-service'),
+            'audience': os.environ.get('JWT_AUDIENCE', 'xshopai-platform')
+        }
+    
+    def get_service_tokens(self) -> Dict[str, str]:
+        """Get service tokens for service-to-service auth."""
+        token_keys = {
+            'product-service': 'SERVICE_PRODUCT_TOKEN',
+            'order-service': 'SERVICE_ORDER_TOKEN',
+            'cart-service': 'SERVICE_CART_TOKEN',
+            'web-bff': 'SERVICE_WEBBFF_TOKEN',
+        }
+        
+        tokens = {}
+        for service, key in token_keys.items():
+            value = os.environ.get(key) or self.get_secret(key)
+            if value:
+                tokens[service] = value
+            else:
+                logger.warning(f"Token for '{service}' not configured (key: {key})")
+        
+        return tokens
+    
+    def get_appinsights_connection_string(self) -> Optional[str]:
+        """Get Application Insights connection string."""
+        # Check standard Azure SDK env var first
+        conn_string = os.environ.get('APPLICATIONINSIGHTS_CONNECTION_STRING')
+        if conn_string:
+            return conn_string
+        
+        # Fall back to Dapr secretstore / env var
+        return self.get_secret('APPINSIGHTS_CONNECTION')
 
+
+# Singleton
+_manager: Optional[SecretManager] = None
+
+def get_secret_manager() -> SecretManager:
+    global _manager
+    if _manager is None:
+        _manager = SecretManager()
+    return _manager
+
+
+# Convenience functions
+def get_database_config() -> Dict[str, Any]:
+    return get_secret_manager().get_database_config()
 
 def get_jwt_config() -> Dict[str, Any]:
-    """
-    Get JWT configuration from secrets or environment variables.
-    
-    Priority order for JWT secret:
-    1. JWT_SECRET environment variable (Azure Container Apps)
-    2. jwt-secret from Dapr secret store (local development)
-    
-    Note: jwt-secret is a shared secret across all services, created by Platform
-    Infrastructure deployment. Secret names use hyphens (not underscores) for
-    Azure Key Vault compatibility.
-    
-    Returns:
-        Dictionary with JWT configuration parameters
-    """
-    # Try environment variable first (Azure Container Apps)
-    jwt_secret = os.environ.get('JWT_SECRET')
-    
-    # Fall back to Dapr secret store (local development)
-    if not jwt_secret:
-        jwt_secret = secret_manager.get_secret('JWT_SECRET')
-    
-    if not jwt_secret:
-        logger.warning(
-            "JWT secret not found, using default (NOT SECURE FOR PRODUCTION)",
-            metadata={
-                "event": "jwt_secret_fallback",
-                "source": "default"
-            }
-        )
-        jwt_secret = 'your_jwt_secret_key'
-    
-    # Algorithm and expiration are just configuration, not secrets
-    # Get from environment variables directly - no need for secret store
-    jwt_algorithm = os.environ.get('JWT_ALGORITHM', 'HS256')
-    jwt_expiration = int(os.environ.get('JWT_EXPIRATION', '3600'))
-    jwt_issuer = os.environ.get('JWT_ISSUER', 'auth-service')
-    jwt_audience = os.environ.get('JWT_AUDIENCE', 'xshopai-platform')
-    
-    return {
-        'secret': jwt_secret,
-        'algorithm': jwt_algorithm,
-        'expiration': jwt_expiration,
-        'issuer': jwt_issuer,
-        'audience': jwt_audience
-    }
+    return get_secret_manager().get_jwt_config()
+
+def get_appinsights_connection_string() -> Optional[str]:
+    return get_secret_manager().get_appinsights_connection_string()
+
+def get_service_tokens() -> Dict[str, str]:
+    return get_secret_manager().get_service_tokens()
