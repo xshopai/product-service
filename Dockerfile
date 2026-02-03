@@ -15,10 +15,10 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (wget for health checks)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -33,8 +33,8 @@ FROM base AS dependencies
 # Copy requirements file
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies including gunicorn for multi-worker support
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # -----------------------------------------------------------------------------
 # Development stage - For local development with hot reload
@@ -68,6 +68,7 @@ FROM base AS production
 
 # Copy installed dependencies from dependencies stage
 COPY --from=dependencies /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=dependencies /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 COPY --from=dependencies /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 
 # Copy application code (unnecessary files excluded via .dockerignore)
@@ -90,8 +91,12 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready')" || exit 1
 
-# Start production server with single worker (multi-worker needs gunicorn for proper process management)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Production environment variables
+ENV PYTHONOPTIMIZE=1 \
+    PYTHONHASHSEED=random
+
+# Start production server with gunicorn and uvicorn workers (2 workers for horizontal scaling)
+CMD ["gunicorn", "main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8001", "--timeout", "120"]
 
 # Labels for better image management and security scanning
 LABEL maintainer="xshopai Team"
