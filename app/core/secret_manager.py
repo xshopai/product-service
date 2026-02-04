@@ -118,17 +118,17 @@ class SecretManager:
         Returns:
             Dictionary with 'connection_string' and 'database' keys
         """
-        # Try MONGODB_URI first (set by aca.sh)
-        uri = os.environ.get('MONGODB_URI')
+        # Try Dapr secret store first (works in both local and Azure)
+        uri = self.get_secret('MONGODB_URI')
         
-        # Fall back to COSMOS_ACCOUNT_CONNECTION via Dapr
+        # Fall back to environment variable (for ACA env var injection or non-Dapr runs)
         if not uri:
-            uri = self.get_secret('COSMOS_ACCOUNT_CONNECTION')
+            uri = os.environ.get('MONGODB_URI')
         
         if not uri:
             raise RuntimeError(
                 "MongoDB connection string not found. "
-                "Set MONGODB_URI env var or COSMOS_ACCOUNT_CONNECTION in Dapr secret store."
+                "Set MONGODB_URI in Dapr secret store (.dapr/secrets.json) or as env var."
             )
         
         # Extract database name from URI or env var
