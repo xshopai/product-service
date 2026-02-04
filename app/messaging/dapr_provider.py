@@ -68,6 +68,8 @@ class DaprProvider(MessagingProvider):
                 client_kwargs['http_port'] = self.dapr_http_port
             
             with DaprClient(**client_kwargs) as client:
+                # Let Dapr handle CloudEvents wrapping/unwrapping natively
+                # Do NOT use rawPayload - it causes deserialization issues with Azure Service Bus
                 client.publish_event(
                     pubsub_name=self.pubsub_name,
                     topic_name=topic,
