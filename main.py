@@ -104,10 +104,74 @@ def setup_azure_monitor() -> bool:
         return False
 
 
+def setup_zipkin_tracing() -> bool:
+    """Configure Zipkin tracing if endpoint is available (fallback when Azure Monitor not configured)."""
+    try:
+        zipkin_endpoint = os.environ.get('ZIPKIN_ENDPOINT') or os.environ.get('OTEL_EXPORTER_ZIPKIN_ENDPOINT')
+        
+        if not zipkin_endpoint:
+            _logger.warning("Zipkin not configured - endpoint not found")
+            return False
+        
+        service_name = os.environ.get('OTEL_SERVICE_NAME', os.environ.get('SERVICE_NAME', 'product-service'))
+        _logger.info(f"Configuring Zipkin tracing with service name: {service_name}, endpoint: {zipkin_endpoint}")
+        
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.exporter.zipkin.json import ZipkinExporter
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+        
+        # Create resource with service name
+        resource = Resource.create({
+            "service.name": service_name,
+            "service.instance.id": os.environ.get('HOSTNAME', 'localhost'),
+        })
+        
+        # Set up tracer provider
+        provider = TracerProvider(resource=resource)
+        trace.set_tracer_provider(provider)
+        
+        # Configure Zipkin exporter
+        zipkin_exporter = ZipkinExporter(endpoint=zipkin_endpoint)
+        provider.add_span_processor(BatchSpanProcessor(zipkin_exporter))
+        
+        # Instrument Requests library
+        RequestsInstrumentor().instrument()
+        
+        _logger.info(f"Zipkin tracing configured successfully - endpoint: {zipkin_endpoint}")
+        return True
+        
+    except ImportError as e:
+        _logger.error(f"Zipkin exporter not installed: {e}")
+        _logger.info("Install with: pip install opentelemetry-exporter-zipkin-json")
+        return False
+    except Exception as e:
+        _logger.error(f"Failed to configure Zipkin tracing: {e}", exc_info=True)
+        return False
+
+
+# Configure tracing - try Azure Monitor first, fallback to Zipkin
+tracing_enabled = False
+if os.environ.get('FLASK_SKIP_AZURE_MONITOR') != 'true':
+    azure_monitor_enabled = setup_azure_monitor()
+    if azure_monitor_enabled:
+        _logger.info("Azure Monitor tracing enabled")
+        tracing_enabled = True
+    else:
+        zipkin_enabled = setup_zipkin_tracing()
+        if zipkin_enabled:
+            _logger.info("Zipkin tracing enabled")
+            tracing_enabled = True
+        else:
+            _logger.warning("No tracing configured - neither Azure Monitor nor Zipkin available")
+
+
 # Configure Azure Monitor BEFORE importing FastAPI app
 # This ensures auto-instrumentation hooks are installed
-azure_monitor_enabled = setup_azure_monitor()
-_logger.info(f"Azure Monitor setup complete: enabled={azure_monitor_enabled}")
+_logger.info(f"Tracing setup complete: enabled={tracing_enabled}")
 
 from contextlib import asynccontextmanager
 
