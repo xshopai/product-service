@@ -9,9 +9,6 @@ from typing import Optional
 
 from app.core.logger import logger
 from .provider import MessagingProvider
-from .dapr_provider import DaprProvider
-from .servicebus_provider import ServiceBusProvider
-from .rabbitmq_provider import RabbitMQProvider
 
 
 def create_messaging_provider() -> MessagingProvider:
@@ -40,12 +37,17 @@ def create_messaging_provider() -> MessagingProvider:
         metadata={"provider_type": provider_type}
     )
     
+    # Lazy import providers based on configuration
+    # This prevents loading Dapr SDK when using RabbitMQ/ServiceBus
     if provider_type == 'dapr':
-        return _create_dapr_provider()
+        from .dapr_provider import DaprProvider
+        return _create_dapr_provider(DaprProvider)
     elif provider_type == 'servicebus':
-        return _create_servicebus_provider()
+        from .servicebus_provider import ServiceBusProvider
+        return _create_servicebus_provider(ServiceBusProvider)
     elif provider_type == 'rabbitmq':
-        return _create_rabbitmq_provider()
+        from .rabbitmq_provider import RabbitMQProvider
+        return _create_rabbitmq_provider(RabbitMQProvider)
     else:
         raise ValueError(
             f"Invalid MESSAGING_PROVIDER: {provider_type}. "
@@ -53,7 +55,7 @@ def create_messaging_provider() -> MessagingProvider:
         )
 
 
-def _create_dapr_provider() -> DaprProvider:
+def _create_dapr_provider(DaprProvider):
     """
     Create and configure Dapr provider.
     Used for Azure Container Apps, AKS, and local development with Dapr.
@@ -71,7 +73,7 @@ def _create_dapr_provider() -> DaprProvider:
     return DaprProvider(pubsub_name=pubsub_name, dapr_http_port=dapr_http_port)
 
 
-def _create_servicebus_provider() -> ServiceBusProvider:
+def _create_servicebus_provider(ServiceBusProvider):
     """
     Create and configure Azure Service Bus provider.
     Used for Azure App Service deployments without Dapr sidecar.
@@ -98,7 +100,7 @@ def _create_servicebus_provider() -> ServiceBusProvider:
     )
 
 
-def _create_rabbitmq_provider() -> RabbitMQProvider:
+def _create_rabbitmq_provider(RabbitMQProvider):
     """
     Create and configure RabbitMQ provider.
     Used for local development without Dapr sidecar.

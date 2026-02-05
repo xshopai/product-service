@@ -244,6 +244,16 @@ async def check_database_health() -> Dict[str, Any]:
 
 async def check_dapr_sidecar_health() -> Dict[str, Any]:
     """Check Dapr sidecar health and connectivity"""
+    # Skip Dapr check if using direct messaging (RabbitMQ/ServiceBus)
+    messaging_provider = os.getenv('MESSAGING_PROVIDER', 'dapr').lower()
+    if messaging_provider != 'dapr':
+        return {
+            "name": "dapr_sidecar",
+            "status": "healthy",
+            "message": f"Skipped (using {messaging_provider} directly)",
+            "timestamp": datetime.now().isoformat(),
+        }
+    
     check_start = time.time()
     dapr_http_port = config.dapr_http_port
     health_url = f"http://localhost:{dapr_http_port}/v1.0/healthz"
@@ -384,6 +394,16 @@ async def check_dapr_sidecar_health() -> Dict[str, Any]:
 
 async def check_message_broker_health() -> Dict[str, Any]:
     """Check message broker (RabbitMQ) connectivity via Dapr pub/sub"""
+    # Skip broker check if using direct messaging - providers handle connectivity internally
+    messaging_provider = os.getenv('MESSAGING_PROVIDER', 'dapr').lower()
+    if messaging_provider != 'dapr':
+        return {
+            "name": "message_broker",
+            "status": "healthy",
+            "message": f"Skipped (using {messaging_provider} directly)",
+            "timestamp": datetime.now().isoformat(),
+        }
+    
     check_start = time.time()
     dapr_http_port = config.dapr_http_port
     pubsub_name = 'pubsub'  # Dapr pubsub component name

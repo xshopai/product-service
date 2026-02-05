@@ -59,7 +59,16 @@ class SecretManager:
     
     @property
     def dapr_client(self):
-        """Lazy load Dapr client"""
+        """Lazy load Dapr client - skip if using direct messaging"""
+        # Skip Dapr client if using RabbitMQ/ServiceBus directly
+        messaging_provider = os.getenv('MESSAGING_PROVIDER', 'dapr').lower()
+        if messaging_provider != 'dapr':
+            logger.debug(
+                f"Skipping Dapr client (using {messaging_provider})",
+                metadata={"messaging_provider": messaging_provider}
+            )
+            return None
+        
         if self._dapr_client is None:
             try:
                 from dapr.clients import DaprClient
