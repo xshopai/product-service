@@ -24,24 +24,7 @@ router = APIRouter()
 start_time = time.time()
 
 
-@router.get("/health")
-def health_check(request: Request):
-    """Basic health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": config.service_name,
-        "timestamp": datetime.now().isoformat(),
-        "version": config.api_version,
-    }
-
-
 @router.get("/health/ready")
-async def health_ready_check(request: Request):
-    """Health ready endpoint - alias for readiness check (Kubernetes/ACA compatible)"""
-    return await readiness_check(request)
-
-
-@router.get("/readiness")
 async def readiness_check(request: Request):
     """Readiness probe - check if service is ready to serve traffic"""
     try:
@@ -89,7 +72,7 @@ async def readiness_check(request: Request):
         )
 
 
-@router.get("/liveness")
+@router.get("/health/live")
 def liveness_check(request: Request):
     """Liveness probe - check if the app is running"""
     return {
