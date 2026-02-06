@@ -200,10 +200,11 @@ DAPR_PUBSUB_NAME=xshopai-pubsub
 CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 
 # Service Tokens (for service-to-service communication)
-ORDER_SERVICE_TOKEN=svc-order-service-4ff5876fc86cc45a18d88e5d
-CART_SERVICE_TOKEN=svc-cart-service-4ff5876fc86cc45a18d88e5d
-INVENTORY_SERVICE_TOKEN=svc-inventory-service-4ff5876fc86cc45a18d88e5d
-WEB_BFF_TOKEN=svc-web-bff-4ff5876fc86cc45a18d88e5d
+# Pattern: SERVICE_{NAME}_TOKEN
+SERVICE_ORDER_TOKEN=svc-order-service-4ff5876fc86cc45a18d88e5d
+SERVICE_CART_TOKEN=svc-cart-service-4ff5876fc86cc45a18d88e5d
+SERVICE_INVENTORY_TOKEN=svc-inventory-service-4ff5876fc86cc45a18d88e5d
+SERVICE_WEBBFF_TOKEN=svc-web-bff-4ff5876fc86cc45a18d88e5d
 ```
 
 > **Note:**

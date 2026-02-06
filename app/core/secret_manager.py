@@ -1,10 +1,10 @@
 """
 Secret Manager Utility
-Manages secrets retrieval using Dapr Secret Store building block
+Manages secrets retrieval from environment variables
 
 Naming Convention:
 - Application code uses UPPER_SNAKE_CASE environment variables
-- Local dev (.env, .dapr/secrets.json) uses UPPER_SNAKE_CASE
+- Local dev (.env) uses UPPER_SNAKE_CASE
 - Azure Key Vault uses lower-kebab-case (aca.sh translates at deployment time)
 
 Product Service Required Secrets:
@@ -39,44 +39,19 @@ REQUIRED_SECRETS = [
 
 class SecretManager:
     """
-    Unified secret manager - same key names everywhere.
-    Tries Dapr first, falls back to env vars.
+    Unified secret manager - uses environment variables.
     """
     
     def __init__(self):
-        self.secret_store_name = 'secretstore'
-        self._dapr_client = None
         self._cache: Dict[str, str] = {}
         
         logger.info(
-            f"Secret manager initialized",
+            f"Secret manager initialized (using environment variables)",
             metadata={
                 "event": "secret_manager_init",
-                "environment": config.environment,
-                "secret_store": self.secret_store_name
+                "environment": config.environment
             }
         )
-    
-    @property
-    def dapr_client(self):
-        """Lazy load Dapr client - skip if using direct messaging"""
-        # Skip Dapr client if using RabbitMQ/ServiceBus directly
-        messaging_provider = os.getenv('MESSAGING_PROVIDER', 'dapr').lower()
-        if messaging_provider != 'dapr':
-            logger.debug(
-                f"Skipping Dapr client (using {messaging_provider})",
-                metadata={"messaging_provider": messaging_provider}
-            )
-            return None
-        
-        if self._dapr_client is None:
-            try:
-                from dapr.clients import DaprClient
-                self._dapr_client = DaprClient()
-            except Exception as e:
-                logger.debug(f"Dapr client not available: {e}")
-                self._dapr_client = False
-        return self._dapr_client if self._dapr_client else None
     
     def get_secret(self, key: str) -> Optional[str]:
         """
@@ -92,30 +67,11 @@ class SecretManager:
         if key in self._cache:
             return self._cache[key]
         
-        value = None
-        
-        # Try Dapr Secret Store first
-        if self.dapr_client:
-            try:
-                response = self.dapr_client.get_secret(
-                    store_name=self.secret_store_name,
-                    key=key
-                )
-                if response and response.secret:
-                    value = response.secret.get(key)
-                    if value:
-                        logger.debug(f"Secret '{key}' loaded from Dapr")
-            except Exception as e:
-                logger.debug(f"Dapr lookup failed for '{key}': {e}")
-        
-        # Fallback to environment variable (same key name)
-        if not value:
-            value = os.environ.get(key)
-            if value:
-                logger.debug(f"Secret '{key}' loaded from env")
-        
+        # Get from environment variable
+        value = os.environ.get(key)
         if value:
             self._cache[key] = value
+            logger.debug(f"Secret '{key}' loaded from env")
             return value
         
         return None
@@ -127,17 +83,12 @@ class SecretManager:
         Returns:
             Dictionary with 'connection_string' and 'database' keys
         """
-        # Try Dapr secret store first (works in both local and Azure)
-        uri = self.get_secret('MONGODB_URI')
-        
-        # Fall back to environment variable (for ACA env var injection or non-Dapr runs)
-        if not uri:
-            uri = os.environ.get('MONGODB_URI')
+        uri = os.environ.get('MONGODB_URI')
         
         if not uri:
             raise RuntimeError(
                 "MongoDB connection string not found. "
-                "Set MONGODB_URI in Dapr secret store (.dapr/secrets.json) or as env var."
+                "Set MONGODB_URI as environment variable."
             )
         
         # Extract database name from URI or env var
