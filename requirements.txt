@@ -19,7 +19,8 @@ aiohttp>=3.9.0
 
 # Dapr SDK for pub/sub and service invocation
 dapr>=1.16.0
-
+# RabbitMQ client for direct messaging (when MESSAGING_PROVIDER=rabbitmq)
+pika>=1.3.2
 # System monitoring
 psutil>=5.9.0
 
