@@ -6,7 +6,7 @@ Uses messaging abstraction layer for deployment flexibility.
 import json
 import os
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.config import config
 from app.core.logger import logger
@@ -62,8 +62,8 @@ class EventPublisher:
             "specversion": "1.0",
             "type": event_type,
             "source": self.service_name,
-            "id": correlation_id or f"{event_type}-{datetime.utcnow().timestamp()}",
-            "time": datetime.utcnow().isoformat() + "Z",
+            "id": correlation_id or f"{event_type}-{datetime.now(timezone.utc).timestamp()}",
+            "time": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
             "datacontenttype": "application/json",
             "data": data,
             "correlationId": correlation_id
@@ -88,7 +88,7 @@ class EventPublisher:
             "productId": product_id,
             "product": product_data,
             "createdBy": created_by,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         return await self.publish_event("product.created", data, correlation_id)
     
@@ -104,7 +104,7 @@ class EventPublisher:
             "productId": product_id,
             "product": product_data,
             "updatedBy": updated_by,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         return await self.publish_event("product.updated", data, correlation_id)
     
@@ -112,14 +112,17 @@ class EventPublisher:
         self,
         product_id: str,
         deleted_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: Optional[str] = None,
+        variants: Optional[List] = None
     ) -> bool:
-        """Publish product.deleted event"""
+        """Publish product.deleted event with optional variants (for variant removal)"""
         data = {
             "productId": product_id,
             "deletedBy": deleted_by,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
+        if variants is not None:
+            data["variants"] = variants
         return await self.publish_event("product.deleted", data, correlation_id)
 
     async def publish_product_price_changed(
@@ -136,7 +139,7 @@ class EventPublisher:
             "oldPrice": old_price,
             "newPrice": new_price,
             "updatedBy": updated_by,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         return await self.publish_event("product.price.changed", data, correlation_id)
 
@@ -156,7 +159,7 @@ class EventPublisher:
             "badgeLabel": badge_label,
             "assignedBy": assigned_by,
             "expiresAt": expires_at,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         return await self.publish_event("product.badge.assigned", data, correlation_id)
 
@@ -172,7 +175,7 @@ class EventPublisher:
             "productId": product_id,
             "badgeType": badge_type,
             "removedBy": removed_by,
-            "timestamp": datetime.utcnow().isoformat() + "Z"
+            "timestamp": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
         }
         return await self.publish_event("product.badge.removed", data, correlation_id)
 

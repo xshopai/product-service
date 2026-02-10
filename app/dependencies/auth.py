@@ -3,6 +3,7 @@ Authentication dependencies for FastAPI
 Provides JWT token validation and user extraction
 """
 
+import os
 from typing import Optional
 import jwt
 from fastapi import Header, HTTPException, status, Depends
@@ -10,9 +11,8 @@ from fastapi import Header, HTTPException, status, Depends
 from app.core.config import config
 from app.core.logger import logger
 from app.models.user import User
-from app.core.secret_manager import get_jwt_config
 
-# Cache JWT config to avoid repeated Dapr calls
+# Cache JWT config to avoid repeated environment variable lookups
 _jwt_config_cache = None
 
 
@@ -20,7 +20,18 @@ def get_cached_jwt_config():
     """Get JWT config with caching"""
     global _jwt_config_cache
     if _jwt_config_cache is None:
-        _jwt_config_cache = get_jwt_config()
+        jwt_secret = os.environ.get('JWT_SECRET')
+        if not jwt_secret:
+            logger.warning("JWT secret not found, using default (NOT SECURE)")
+            jwt_secret = 'your_jwt_secret_key'
+        
+        _jwt_config_cache = {
+            'secret': jwt_secret,
+            'algorithm': os.environ.get('JWT_ALGORITHM', 'HS256'),
+            'expiration': int(os.environ.get('JWT_EXPIRATION', '3600')),
+            'issuer': os.environ.get('JWT_ISSUER', 'auth-service'),
+            'audience': os.environ.get('JWT_AUDIENCE', 'xshopai-platform')
+        }
     return _jwt_config_cache
 
 

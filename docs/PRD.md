@@ -6,8 +6,7 @@
 2. [Scope](#2-scope)
 3. [User Stories](#3-user-stories)
 4. [Functional Requirements](#4-functional-requirements)
-5. [Traceability Matrix](#5-traceability-matrix)
-6. [Non-Functional Requirements](#6-non-functional-requirements)
+5. [Non-Functional Requirements](#5-non-functional-requirements)
 
 ---
 
@@ -27,17 +26,7 @@ The Product Service is a core microservice within the xshopai e-commerce platfor
 | **Real-time Data Sync**         | Keep denormalized data (reviews, inventory) synchronized via events       |
 | **Scalable Architecture**       | Support millions of products with fast search and retrieval               |
 
-### 1.3 Success Metrics
-
-| Metric                     | Target  | Description                                     |
-| -------------------------- | ------- | ----------------------------------------------- |
-| API Response Time (p95)    | < 200ms | 95th percentile response time for queries       |
-| Search Response Time (p95) | < 300ms | 95th percentile for search operations           |
-| Product Creation Success   | > 98%   | Percentage of valid creation requests           |
-| Service Availability       | 99.9%   | Uptime during business hours                    |
-| Event Publishing Success   | > 99.9% | Events successfully published to message broker |
-
-### 1.4 Target Users
+### 1.3 Target Users
 
 | User               | Interaction                                                      |
 | ------------------ | ---------------------------------------------------------------- |
@@ -508,26 +497,9 @@ The system shall consume inventory events to update availability status.
 
 ---
 
-## 6. Non-Functional Requirements
+## 5. Non-Functional Requirements
 
-### 6.1 Performance
-
-| Metric                     | Target     | Description                         |
-| -------------------------- | ---------- | ----------------------------------- |
-| API Response Time (p95)    | < 200ms    | Product queries and list operations |
-| Search Response Time (p95) | < 300ms    | Full-text search operations         |
-| Write Operations (p95)     | < 500ms    | Create/update operations            |
-| Throughput                 | 2000 req/s | Sustained load during peak hours    |
-
-### 6.2 Reliability
-
-| Metric                    | Target  | Description                               |
-| ------------------------- | ------- | ----------------------------------------- |
-| Service Availability      | 99.9%   | Uptime during business hours              |
-| Product Operation Success | > 98%   | Valid requests that complete successfully |
-| Event Publishing Success  | > 99.9% | Events successfully published             |
-
-### 6.3 Security
+### 5.1 Security
 
 | Requirement                                 | Priority |
 | ------------------------------------------- | -------- |
@@ -537,7 +509,7 @@ The system shall consume inventory events to update availability status.
 | No sensitive data in logs                   | High     |
 | Rate limiting on search endpoints           | High     |
 
-### 6.4 Observability
+### 5.2 Observability
 
 | Requirement                                         | Priority |
 | --------------------------------------------------- | -------- |
@@ -547,7 +519,7 @@ The system shall consume inventory events to update availability status.
 | Prometheus metrics endpoint (`/metrics`)            | High     |
 | Distributed tracing via OpenTelemetry               | Medium   |
 
-### 6.5 Scalability
+### 5.3 Scalability
 
 | Requirement          | Target             |
 | -------------------- | ------------------ |
@@ -556,7 +528,7 @@ The system shall consume inventory events to update availability status.
 | Concurrent users     | 10,000+            |
 | Stateless design     | Required           |
 
-### 6.6 Data Consistency
+### 5.4 Data Consistency
 
 | Requirement                                | Description                               |
 | ------------------------------------------ | ----------------------------------------- |

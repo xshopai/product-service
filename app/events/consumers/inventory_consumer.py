@@ -80,8 +80,36 @@ class InventoryEventConsumer:
                 }
             )
             
-            # TODO: Add logic to update product stock status
-            # Find product by variant SKU and update availabilityStatus
+            # Find product by variant SKU
+            product = await self.product_repo.find_by_variant_sku(sku)
+            
+            if not product:
+                logger.warning(
+                    f"Product not found for SKU {sku}",
+                    metadata={"correlationId": correlation_id, "sku": sku}
+                )
+                return {"status": "success"}  # Not an error - product may not exist yet
+            
+            # Update availability status based on stock level
+            if stock_level > 0:
+                availability_status = "in_stock"
+            else:
+                availability_status = "out_of_stock"
+            
+            # Update the variant's availability
+            await self.product_repo.update_variant_availability(
+                product.id, sku, availability_status
+            )
+            
+            logger.info(
+                f"Updated availability status for SKU {sku} to {availability_status}",
+                metadata={
+                    "correlationId": correlation_id,
+                    "sku": sku,
+                    "productId": product.id,
+                    "availabilityStatus": availability_status
+                }
+            )
             
             return {"status": "success"}
             
@@ -122,8 +150,29 @@ class InventoryEventConsumer:
                 }
             )
             
-            # TODO: Add logic to handle low stock notification
-            # Find product by variant SKU and set low_stock flag
+            # Find product by variant SKU
+            product = await self.product_repo.find_by_variant_sku(sku)
+            
+            if not product:
+                logger.warning(
+                    f"Product not found for SKU {sku}",
+                    metadata={"correlationId": correlation_id, "sku": sku}
+                )
+                return {"status": "success"}
+            
+            # Update availability status to low_stock
+            await self.product_repo.update_variant_availability(
+                product.id, sku, "low_stock"
+            )
+            
+            logger.info(
+                f"Marked SKU {sku} as low stock",
+                metadata={
+                    "correlationId": correlation_id,
+                    "sku": sku,
+                    "productId": product.id
+                }
+            )
             
             return {"status": "success"}
             
@@ -164,8 +213,29 @@ class InventoryEventConsumer:
                 }
             )
             
-            # TODO: Add logic to mark product as out of stock
-            # Find product by variant SKU and set availabilityStatus
+            # Find product by variant SKU
+            product = await self.product_repo.find_by_variant_sku(sku)
+            
+            if not product:
+                logger.warning(
+                    f"Product not found for SKU {sku}",
+                    metadata={"correlationId": correlation_id, "sku": sku}
+                )
+                return {"status": "success"}
+            
+            # Update availability status to out_of_stock
+            await self.product_repo.update_variant_availability(
+                product.id, sku, "out_of_stock"
+            )
+            
+            logger.info(
+                f"Marked SKU {sku} as out of stock",
+                metadata={
+                    "correlationId": correlation_id,
+                    "sku": sku,
+                    "productId": product.id
+                }
+            )
             
             return {"status": "success"}
             

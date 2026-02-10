@@ -9,13 +9,20 @@ from pydantic import BaseModel, Field
 from app.models.product import ProductBase, ProductTaxonomy
 
 
+class VariantInput(BaseModel):
+    """Schema for variant input during product creation"""
+    color: Optional[str] = Field(None, description="Variant color")
+    size: Optional[str] = Field(None, description="Variant size")
+    initial_stock: int = Field(default=0, ge=0, description="Initial inventory stock")
+    # SKU will be auto-generated, no input needed
+
+
 class ProductCreate(BaseModel):
-    """Schema for creating a new product"""
+    """Schema for creating a new product with variants and initial stock"""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = Field(None, max_length=2000)
     price: float = Field(..., ge=0)
     brand: Optional[str] = Field(None, max_length=100)
-    sku: Optional[str] = Field(None, max_length=50)
     status: str = Field(default="active")
     
     # Hierarchical category taxonomy (nested object per PRD)
@@ -25,9 +32,11 @@ class ProductCreate(BaseModel):
     images: List[str] = []
     tags: List[str] = []
     
-    # Product variations
-    colors: List[str] = []
-    sizes: List[str] = []
+    # Product variants with initial stock (SKUs auto-generated)
+    variants: List[VariantInput] = Field(
+        default_factory=list,
+        description="Product variants - SKUs will be auto-generated based on name/color/size"
+    )
     
     # Product specifications
     specifications: dict = {}
@@ -52,6 +61,7 @@ class ProductUpdate(BaseModel):
     # Product variations
     colors: Optional[List[str]] = None
     sizes: Optional[List[str]] = None
+    variants: Optional[List] = None  # Allow updating variants array
     
     # Product specifications
     specifications: Optional[dict] = None

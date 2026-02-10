@@ -106,7 +106,7 @@ def _create_rabbitmq_provider(RabbitMQProvider):
     Used for local development without Dapr sidecar.
     """
     rabbitmq_url = os.getenv('RABBITMQ_URL')
-    exchange = os.getenv('RABBITMQ_EXCHANGE', 'product-events')
+    exchange = os.getenv('RABBITMQ_EXCHANGE', 'xshopai.events')
     
     if not rabbitmq_url:
         raise ValueError(

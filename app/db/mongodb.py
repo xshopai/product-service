@@ -2,13 +2,15 @@
 MongoDB database connection and configuration following FastAPI best practices
 """
 
+import os
+import re
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
+from urllib.parse import urlparse
 
 from app.core.config import config
 from app.core.errors import ErrorResponse
 from app.core.logger import logger
-from app.core.secret_manager import get_database_config
 
 
 class Database:
@@ -26,13 +28,23 @@ async def connect_to_mongo():
     logger.info("Connecting to MongoDB...")
     
     try:
-        # Get database configuration (connection string + database name)
-        db_config = get_database_config()
-        mongodb_url = db_config['connection_string']
-        database = db_config['database']
+        # Get database configuration from environment variables
+        mongodb_url = os.environ.get('MONGODB_URI')
+        
+        if not mongodb_url:
+            raise RuntimeError(
+                "MongoDB connection string not found. "
+                "Set MONGODB_URI as environment variable."
+            )
+        
+        # Extract database name from URI or env var
+        parsed = urlparse(mongodb_url)
+        database = parsed.path.lstrip('/') if parsed.path and parsed.path != '/' else None
+        
+        if not database:
+            database = os.environ.get('MONGODB_DB_NAME', 'product_service_db')
         
         # Sanitize URL for logging (hide password)
-        import re
         sanitized_url = re.sub(r'://[^:]+:[^@]+@', '://***:***@', mongodb_url)
         
         # Detect if this is Cosmos DB (for connection options)

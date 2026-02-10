@@ -491,6 +491,46 @@ class ProductRepository:
             logger.error(f"MongoDB error checking SKU: {e}")
             raise ErrorResponse("Database error during SKU validation", status_code=503)
     
+    async def find_by_variant_sku(self, sku: str) -> Optional[ProductResponse]:
+        """Find product by variant SKU"""
+        try:
+            doc = await self.collection.find_one({"variants.sku": sku, "is_active": True})
+            return self._doc_to_response(doc) if doc else None
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error finding product by variant SKU: {e}")
+            raise ErrorResponse("Database error during product lookup", status_code=503)
+    
+    async def update_variant_availability(self, product_id: str, sku: str, availability_status: str) -> Optional[ProductResponse]:
+        """Update availability status for a specific variant by SKU"""
+        try:
+            if not ObjectId.is_valid(product_id):
+                return None
+            
+            obj_id = ObjectId(product_id)
+            
+            # Update the variant's availability in the variants array
+            result = await self.collection.update_one(
+                {"_id": obj_id, "variants.sku": sku},
+                {
+                    "$set": {
+                        "variants.$.availability_status": availability_status,
+                        "updated_at": datetime.now(timezone.utc)
+                    }
+                }
+            )
+            
+            if result.modified_count == 0:
+                return None
+            
+            # Get and return updated product
+            doc = await self.collection.find_one({"_id": obj_id})
+            return self._doc_to_response(doc) if doc else None
+            
+        except PyMongoError as e:
+            logger.error(f"MongoDB error updating variant availability: {e}")
+            raise ErrorResponse("Database error during availability update", status_code=503)
+    
     async def exists(self, product_id: str) -> bool:
         """Check if product exists and is active"""
         try:

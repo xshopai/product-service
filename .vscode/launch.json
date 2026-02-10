@@ -2,24 +2,30 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug",
+      "name": "Debug (Local)",
       "type": "debugpy",
       "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "main:app",
-        "--host", "0.0.0.0",
-        "--port", "1001",
-        "--reload"
-      ],
-      "jinja": true,
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
       "justMyCode": false,
-      "preLaunchTask": "Start Dapr Sidecar",
-      "postDebugTask": "Stop Dapr Sidecar",
+      "envFile": "${workspaceFolder}/.env.local",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
+    },
+    {
+      "name": "Debug (with Dapr)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "envFile": "${workspaceFolder}/.env.dapr",
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       },
-      "console": "integratedTerminal"
+      "preLaunchTask": "dapr-start-product",
+      "postDebugTask": "dapr-stop-product"
     }
   ]
 }

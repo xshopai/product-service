@@ -39,7 +39,7 @@ except Exception as e:
 
 
 # Configure tracing using unified module
-from src.tracing import setup_tracing, is_tracing_enabled
+from app.core.tracing import setup_tracing, is_tracing_enabled
 
 tracing_enabled = setup_tracing('product-service')
 _logger.info(f"Tracing setup complete: enabled={tracing_enabled}")
@@ -122,9 +122,11 @@ if __name__ == "__main__":
         }
     )
     
+    # Disable reload to prevent Flask/Uvicorn from spawning a child process
+    # This ensures VS Code debugger breakpoints work correctly
     uvicorn.run(
         "main:app",
         host=config.host,
         port=config.port,
-        reload=config.environment == "development"
+        reload=False  # Always False for VS Code debugging
     )

@@ -20,7 +20,7 @@ class RabbitMQProvider(MessagingProvider):
     Note: Requires pika package to be installed.
     """
     
-    def __init__(self, rabbitmq_url: str, exchange: str = "product-events"):
+    def __init__(self, rabbitmq_url: str, exchange: str = "xshopai.events"):
         """
         Initialize RabbitMQ provider.
         

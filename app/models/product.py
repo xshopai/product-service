@@ -55,6 +55,7 @@ class ProductVariant(BaseModel):
     sku: str = Field(..., description="Unique SKU for this variant")
     color: Optional[str] = Field(None, description="Color of this variant")
     size: Optional[str] = Field(None, description="Size of this variant")
+    initial_stock: int = Field(default=0, ge=0, description="Initial inventory stock for this variant")
 
 
 class ProductBadge(BaseModel):

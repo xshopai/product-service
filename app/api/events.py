@@ -10,23 +10,23 @@ from app.events.consumers.review_consumer import review_event_consumer
 from app.events.consumers.inventory_consumer import inventory_event_consumer
 from app.core.logger import logger
 
-router = APIRouter(prefix="/dapr", tags=["dapr-pubsub"])
+router = APIRouter(prefix="/events", tags=["events"])
 
 # Programmatic subscription definitions for Azure Container Apps.
 # ACA doesn't support declarative YAML subscriptions - only this endpoint.
 # For local development, Dapr CLI uses .dapr/components/subscriptions.yaml instead.
 # IMPORTANT: Keep both in sync when adding/removing subscriptions.
 SUBSCRIPTIONS: List[Dict[str, str]] = [
-    {"pubsubname": "pubsub", "topic": "inventory.stock.updated", "route": "/dapr/events/inventory.stock.updated"},
-    {"pubsubname": "pubsub", "topic": "inventory.low.stock", "route": "/dapr/events/inventory.low.stock"},
-    {"pubsubname": "pubsub", "topic": "inventory.out.of.stock", "route": "/dapr/events/inventory.out.of.stock"},
-    {"pubsubname": "pubsub", "topic": "review.created", "route": "/dapr/events/review.created"},
-    {"pubsubname": "pubsub", "topic": "review.updated", "route": "/dapr/events/review.updated"},
-    {"pubsubname": "pubsub", "topic": "review.deleted", "route": "/dapr/events/review.deleted"},
+    {"pubsubname": "pubsub", "topic": "inventory.stock.updated", "route": "/events/inventory.stock.updated"},
+    {"pubsubname": "pubsub", "topic": "inventory.low.stock", "route": "/events/inventory.low.stock"},
+    {"pubsubname": "pubsub", "topic": "inventory.out.of.stock", "route": "/events/inventory.out.of.stock"},
+    {"pubsubname": "pubsub", "topic": "review.created", "route": "/events/review.created"},
+    {"pubsubname": "pubsub", "topic": "review.updated", "route": "/events/review.updated"},
+    {"pubsubname": "pubsub", "topic": "review.deleted", "route": "/events/review.deleted"},
 ]
 
 
-@router.get("/subscribe")
+@router.get("/dapr/subscribe")
 async def get_subscriptions() -> List[Dict[str, str]]:
     """
     Dapr subscription endpoint (programmatic).
@@ -56,7 +56,7 @@ async def get_dapr_config():
     }
 
 
-@router.post("/events/review.created")
+@router.post("/review.created")
 async def handle_review_created(request: Request):
     """
     Handle review.created event from Dapr pub/sub.
@@ -88,7 +88,7 @@ async def handle_review_created(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/review.updated")
+@router.post("/review.updated")
 async def handle_review_updated(request: Request):
     """
     Handle review.updated event from Dapr pub/sub.
@@ -117,7 +117,7 @@ async def handle_review_updated(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/review.deleted")
+@router.post("/review.deleted")
 async def handle_review_deleted(request: Request):
     """
     Handle review.deleted event from Dapr pub/sub.
@@ -146,7 +146,7 @@ async def handle_review_deleted(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/inventory.stock.updated")
+@router.post("/inventory.stock.updated")
 async def handle_inventory_stock_updated(request: Request):
     """
     Handle inventory.stock.updated event from Dapr pub/sub.
@@ -175,7 +175,7 @@ async def handle_inventory_stock_updated(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/inventory.low.stock")
+@router.post("/inventory.low.stock")
 async def handle_inventory_low_stock(request: Request):
     """
     Handle inventory.low.stock event from Dapr pub/sub.
@@ -204,7 +204,7 @@ async def handle_inventory_low_stock(request: Request):
         return {"status": "SUCCESS"}
 
 
-@router.post("/events/inventory.out.of.stock")
+@router.post("/inventory.out.of.stock")
 async def handle_inventory_out_of_stock(request: Request):
     """
     Handle inventory.out.of.stock event from Dapr pub/sub.

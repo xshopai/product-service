@@ -15,9 +15,10 @@ from app.schemas.product import (
     BadgeAssign, BadgeResponse, ProductWithVariationsCreate, ProductWithVariationsResponse,
     VariationCreate, BulkImportJobResponse, BulkImportStatusResponse, AutocompleteResponse
 )
-from app.models.product import ProductBadge
+from app.models.product import ProductBadge, ProductVariant
 from app.events import event_publisher
 from app.middleware.trace_context import get_trace_id
+from app.utils.sku_generator import generate_sku
 
 
 # In-memory job storage (for demo - use Redis or DB in production)
@@ -31,28 +32,70 @@ class ProductService:
         self.repository = repository
     
     async def create_product(self, product_data: ProductCreate, created_by: str = "system") -> ProductResponse:
-        """Create a new product with business validation"""
+        """
+        Create a new product with variants and auto-generated SKUs.
+        Each variant gets a unique SKU and initial stock tracking.
+        """
         # Validate business rules
         if product_data.price < 0:
             raise ErrorResponse("Price must be non-negative", status_code=400)
         
-        # Check for duplicate SKU
-        if product_data.sku:
-            if await self.repository.check_sku_exists(product_data.sku):
-                raise ErrorResponse("A product with this SKU already exists", status_code=400)
+        # Auto-generate SKUs for all variants
+        generated_variants = []
+        for variant_input in product_data.variants:
+            # Generate unique SKU based on product name + variant attributes
+            sku = generate_sku(
+                product_name=product_data.name,
+                color=variant_input.color,
+                size=variant_input.size
+            )
+            
+            # Check for duplicate SKU
+            if await self.repository.check_sku_exists(sku):
+                raise ErrorResponse(
+                    f"Generated SKU '{sku}' already exists. Please modify product name or variant attributes.",
+                    status_code=400
+                )
+            
+            # Create ProductVariant with generated SKU and initial stock
+            variant = ProductVariant(
+                sku=sku,
+                color=variant_input.color,
+                size=variant_input.size,
+                initial_stock=variant_input.initial_stock
+            )
+            generated_variants.append(variant)
+        
+        # Add generated variants to product data
+        product_dict = product_data.model_dump()
+        product_dict['variants'] = [v.model_dump() for v in generated_variants]
+        
+        # Extract unique colors and sizes for product-level attributes
+        colors = list(set(v.color for v in generated_variants if v.color))
+        sizes = list(set(v.size for v in generated_variants if v.size))
+        product_dict['colors'] = colors
+        product_dict['sizes'] = sizes
         
         # Create the product
-        product = await self.repository.create(product_data, created_by)
+        product = await self.repository.create(ProductCreate(**product_dict), created_by)
         
         logger.info(
-            f"Created product {product.id}",
-            metadata={"event": "create_product", "product_id": product.id}
+            f"Created product {product.id} with {len(generated_variants)} variants",
+            metadata={
+                "event": "create_product",
+                "product_id": product.id,
+                "variant_count": len(generated_variants),
+                "skus": [v.sku for v in generated_variants]
+            }
         )
         
-        # Publish product.created event via Dapr
+        # Publish product.created event with variants (for inventory-service)
         await event_publisher.publish_product_created(
             product_id=product.id,
-            product_data=product.model_dump(),
+            product_data={
+                **product.model_dump(),
+                "variants": [v.model_dump() for v in generated_variants]  # Include full variant info with initial_stock
+            },
             created_by=created_by,
             correlation_id=get_trace_id()
         )
@@ -132,6 +175,12 @@ class ProductService:
     
     async def delete_product(self, product_id: str, deleted_by: str = "system") -> None:
         """Soft delete a product"""
+        # Get the product first to retrieve variants for inventory cleanup
+        product = await self.repository.get_by_id(product_id)
+        if not product:
+            raise ErrorResponse("Product not found", status_code=404)
+        
+        # Soft delete the product
         success = await self.repository.delete(product_id)
         if not success:
             raise ErrorResponse("Product not found", status_code=404)
@@ -141,11 +190,16 @@ class ProductService:
             metadata={"event": "soft_delete_product", "product_id": product_id}
         )
         
-        # Publish product.deleted event via Dapr
+        # Publish product.deleted event via Dapr with variants for inventory cleanup
+        variants_data = None
+        if product.variants:
+            variants_data = [v.model_dump() for v in product.variants]
+        
         await event_publisher.publish_product_deleted(
             product_id=product_id,
             deleted_by=deleted_by,
-            correlation_id=get_trace_id()
+            correlation_id=get_trace_id(),
+            variants=variants_data
         )
     
     async def reactivate_product(self, product_id: str, updated_by: str = None) -> ProductResponse:
@@ -474,6 +528,143 @@ class ProductService:
         return ProductWithVariationsResponse(
             parent=parent_product,
             variations=created_variations
+        )
+    
+    async def add_variant(
+        self, 
+        product_id: str, 
+        variant_data: VariationCreate,
+        updated_by: str = "system"
+    ) -> ProductResponse:
+        """
+        Add a new variant to an existing product.
+        Auto-generates SKU based on product name and variant attributes.
+        """
+        # Get the product
+        product = await self.repository.get_by_id(product_id)
+        if not product:
+            raise ErrorResponse("Product not found", status_code=404)
+        
+        # Auto-generate SKU for the new variant
+        from app.utils.sku_generator import generate_sku
+        sku = generate_sku(
+            product_name=product.name,
+            color=variant_data.color,
+            size=variant_data.size
+        )
+        
+        # Check for duplicate SKU
+        if await self.repository.check_sku_exists(sku):
+            raise ErrorResponse(
+                f"Generated SKU '{sku}' already exists. Please modify variant attributes.",
+                status_code=400
+            )
+        
+        # Create the new variant
+        from app.models.product import ProductVariant
+        variant = ProductVariant(
+            sku=sku,
+            color=variant_data.color,
+            size=variant_data.size,
+            initial_stock=variant_data.initial_stock or 0
+        )
+        
+        # Add to product's variants array
+        updated_variants = list(product.variants) if product.variants else []
+        updated_variants.append(variant)
+        
+        # Update colors and sizes
+        colors = list(set([v.color for v in updated_variants if v.color]))
+        sizes = list(set([v.size for v in updated_variants if v.size]))
+        
+        # Update product with new variant
+        from app.schemas.product import ProductUpdate
+        update_data = ProductUpdate(
+            variants=updated_variants,
+            colors=colors,
+            sizes=sizes
+        )
+        updated_product = await self.repository.update(product_id, update_data, updated_by)
+        
+        logger.info(
+            f"Added variant {sku} to product {product_id}",
+            metadata={
+                "event": "variant_added",
+                "product_id": product_id,
+                "sku": sku,
+                "color": variant_data.color,
+                "size": variant_data.size
+            }
+        )
+        
+        # Publish product.created event for the new variant (so inventory service creates inventory)
+        await event_publisher.publish_product_created(
+            product_id=product_id,
+            product_data={
+                "productId": product_id,
+                "name": product.name,
+                "variants": [variant.model_dump()]  # Single variant
+            },
+            created_by=updated_by,
+            correlation_id=get_trace_id()
+        )
+        
+        return updated_product
+    
+    async def remove_variant(
+        self, 
+        product_id: str, 
+        sku: str,
+        updated_by: str = "system"
+    ) -> None:
+        """
+        Remove a variant from a product by SKU.
+        Also triggers inventory archival for the SKU.
+        """
+        # Get the product
+        product = await self.repository.get_by_id(product_id)
+        if not product:
+            raise ErrorResponse("Product not found", status_code=404)
+        
+        # Find and remove the variant
+        if not product.variants:
+            raise ErrorResponse("Product has no variants", status_code=400)
+        
+        # Filter out the variant with matching SKU
+        updated_variants = [v for v in product.variants if v.sku != sku]
+        
+        if len(updated_variants) == len(product.variants):
+            raise ErrorResponse(f"Variant with SKU '{sku}' not found", status_code=404)
+        
+        # Update colors and sizes (regenerate from remaining variants)
+        colors = list(set([v.color for v in updated_variants if v.color]))
+        sizes = list(set([v.size for v in updated_variants if v.size]))
+        
+        # Update product without the removed variant
+        from app.schemas.product import ProductUpdate
+        update_data = ProductUpdate(
+            variants=updated_variants,
+            colors=colors,
+            sizes=sizes
+        )
+        await self.repository.update(product_id, update_data, updated_by)
+        
+        logger.info(
+            f"Removed variant {sku} from product {product_id}",
+            metadata={
+                "event": "variant_removed",
+                "product_id": product_id,
+                "sku": sku
+            }
+        )
+        
+        # Publish event to archive inventory for this SKU
+        # Use product.deleted event with single variant to trigger inventory archival
+        await event_publisher.publish_product_deleted(
+            product_id=product_id,
+            deleted_by=updated_by,
+            correlation_id=get_trace_id(),
+            variants=[{"sku": sku}]  # Just the removed variant
         )
 
     # ==================== BADGE METHODS ====================

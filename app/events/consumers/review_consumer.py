@@ -4,7 +4,7 @@ Handles incoming events from other services via Dapr pub/sub
 """
 
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.logger import logger
 from app.repositories.product import ProductRepository
@@ -147,7 +147,7 @@ class ReviewEventConsumer:
                 "rating_distribution": rating_dist,
                 "recent_reviews": recent_reviews,
                 "last_review_date": created_at,
-                "last_updated": datetime.utcnow().isoformat() + "Z"
+                "last_updated": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
             
             # Update product in database
@@ -280,7 +280,7 @@ class ReviewEventConsumer:
             updated_aggregates.update({
                 "average_rating": new_average,
                 "rating_distribution": rating_dist,
-                "last_updated": datetime.utcnow().isoformat() + "Z"
+                "last_updated": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             })
             
             await self.product_repo.update(
@@ -412,7 +412,7 @@ class ReviewEventConsumer:
                 "rating_distribution": rating_dist,
                 "recent_reviews": recent_reviews,
                 "last_review_date": current_aggregates.get("last_review_date"),
-                "last_updated": datetime.utcnow().isoformat() + "Z"
+                "last_updated": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
             }
             
             await self.product_repo.update(

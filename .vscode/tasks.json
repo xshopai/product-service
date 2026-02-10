@@ -2,6 +2,87 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "db-start",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.db.yml up -d",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "db-stop",
+      "type": "shell",
+      "command": "docker compose -f docker-compose.db.yml down",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dapr-start-product",
+      "type": "shell",
+      "command": "dapr",
+      "args": [
+        "run",
+        "--app-id",
+        "product-service",
+        "--app-port",
+        "8001",
+        "--dapr-http-port",
+        "3500",
+        "--dapr-grpc-port",
+        "50001",
+        "--resources-path",
+        ".dapr/components",
+        "--config",
+        ".dapr/config.yaml",
+        "--log-level",
+        "info"
+      ],
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": ".",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Starting Dapr.*",
+          "endsPattern": ".*(You're up and running|Dapr initialized|dapr initialized).*"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": false
+      }
+    },
+    {
+      "label": "dapr-stop-product",
+      "type": "shell",
+      "command": "dapr",
+      "args": ["stop", "--app-id", "product-service"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Start Dapr Sidecar",
       "type": "shell",
       "command": "dapr",

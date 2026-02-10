@@ -302,6 +302,81 @@ async def create_product_with_variations(
 
 
 # ============================================
+# Variant Management (CRUD for Product Variants)
+# ============================================
+
+@router.post(
+    "/products/{product_id}/variants",
+    response_model=ProductResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"model": ErrorResponseModel},
+        401: {"model": ErrorResponseModel},
+        403: {"model": ErrorResponseModel},
+        404: {"model": ErrorResponseModel}
+    },
+    summary="Add Variant to Product",
+    description="Add a new variant (color/size) to an existing product. Requires admin role."
+)
+async def add_variant(
+    product_id: str,
+    variant_data: AddVariationRequest,
+    service: ProductService = Depends(get_product_service),
+    user: User = Depends(require_admin)
+):
+    """
+    Add a new variant to an existing product.
+    SKU will be auto-generated based on product name and variant attributes.
+    Requires admin authentication.
+    """
+    logger.info(
+        "Admin adding variant to product",
+        metadata={
+            "event": "admin_add_variant",
+            "user_id": user.id,
+            "product_id": product_id,
+            "color": variant_data.variation.color,
+            "size": variant_data.variation.size
+        }
+    )
+    return await service.add_variant(product_id, variant_data.variation, updated_by=user.id)
+
+
+@router.delete(
+    "/products/{product_id}/variants/{sku}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"model": ErrorResponseModel},
+        403: {"model": ErrorResponseModel},
+        404: {"model": ErrorResponseModel}
+    },
+    summary="Remove Variant from Product",
+    description="Remove a variant from a product by SKU. Requires admin role."
+)
+async def remove_variant(
+    product_id: str,
+    sku: str,
+    service: ProductService = Depends(get_product_service),
+    user: User = Depends(require_admin)
+):
+    """
+    Remove a variant from a product.
+    Also triggers inventory archival for the SKU.
+    Requires admin authentication.
+    """
+    logger.info(
+        "Admin removing variant from product",
+        metadata={
+            "event": "admin_remove_variant",
+            "user_id": user.id,
+            "product_id": product_id,
+            "sku": sku
+        }
+    )
+    await service.remove_variant(product_id, sku, updated_by=user.id)
+
+
+# ============================================
 # Badge Management (PRD 4.11)
 # ============================================
 

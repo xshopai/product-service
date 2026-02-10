@@ -4,7 +4,7 @@ metadata:
   name: review-created-subscription
 spec:
   topic: review.created
-  route: /dapr/events/review.created
+  route: /events/review.created
   pubsubname: pubsub
 ---
 apiVersion: dapr.io/v1alpha1
@@ -13,7 +13,7 @@ metadata:
   name: review-updated-subscription
 spec:
   topic: review.updated
-  route: /dapr/events/review.updated
+  route: /events/review.updated
   pubsubname: pubsub
 ---
 apiVersion: dapr.io/v1alpha1
@@ -22,7 +22,7 @@ metadata:
   name: review-deleted-subscription
 spec:
   topic: review.deleted
-  route: /dapr/events/review.deleted
+  route: /events/review.deleted
   pubsubname: pubsub
 ---
 apiVersion: dapr.io/v1alpha1
@@ -31,7 +31,7 @@ metadata:
   name: inventory-stock-updated-subscription
 spec:
   topic: inventory.stock.updated
-  route: /dapr/events/inventory.stock.updated
+  route: /events/inventory.stock.updated
   pubsubname: pubsub
 ---
 apiVersion: dapr.io/v1alpha1
@@ -40,7 +40,7 @@ metadata:
   name: inventory-low-stock-subscription
 spec:
   topic: inventory.low.stock
-  route: /dapr/events/inventory.low.stock
+  route: /events/inventory.low.stock
   pubsubname: pubsub
 ---
 apiVersion: dapr.io/v1alpha1
@@ -49,5 +49,5 @@ metadata:
   name: inventory-out-of-stock-subscription
 spec:
   topic: inventory.out.of.stock
-  route: /dapr/events/inventory.out.of.stock
+  route: /events/inventory.out.of.stock
   pubsubname: pubsub
