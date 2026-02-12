@@ -9,11 +9,34 @@ load_dotenv()
 
 import os
 import logging
+from datetime import datetime
 
-# Configure basic logging early
+# Color formatter for bootstrap logging (before StandardLogger is available)
+class BootstrapColorFormatter(logging.Formatter):
+    COLORS = {
+        'DEBUG': '\033[94m',    # Blue
+        'INFO': '\033[92m',     # Green
+        'WARNING': '\033[93m',  # Yellow
+        'ERROR': '\033[91m',    # Red
+        'CRITICAL': '\033[95m', # Magenta
+    }
+    RESET = '\033[0m'
+    
+    def format(self, record):
+        timestamp = datetime.fromtimestamp(record.created).isoformat()
+        color = self.COLORS.get(record.levelname, '')
+        # Format: [timestamp] [LEVEL] logger-name [bootstrap]: message
+        base_msg = f"[{timestamp}] [{record.levelname}] {record.name} [bootstrap]: {record.getMessage()}"
+        if color:
+            base_msg = f"{color}{base_msg}{self.RESET}"
+        return base_msg
+
+# Configure bootstrap logging early with colored output
+_handler = logging.StreamHandler()
+_handler.setFormatter(BootstrapColorFormatter())
 logging.basicConfig(
     level=logging.DEBUG if os.environ.get('DEBUG') == 'true' else logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[_handler]
 )
 _logger = logging.getLogger(__name__)
 
@@ -112,13 +135,15 @@ app.include_router(events.router)  # Dapr pub/sub event subscriptions
 if __name__ == "__main__":
     import uvicorn
     
+    display_host = 'localhost' if config.host == '0.0.0.0' else config.host
     logger.info(
         f"Starting {config.service_name} on port {config.port}",
         metadata={
             "service_name": config.service_name,
             "version": config.service_version,
             "environment": config.environment,
-            "port": config.port
+            "port": config.port,
+            "host": display_host
         }
     )
     

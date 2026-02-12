@@ -5,7 +5,7 @@ Uses messaging abstraction layer for deployment flexibility.
 
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 
 from app.core.config import config
