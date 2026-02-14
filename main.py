@@ -79,6 +79,7 @@ from app.core.logger import logger
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.api import products, operational, admin, home, events
 from app.middleware import TraceContextMiddleware
+from app.consumers import start_rabbitmq_consumer, stop_rabbitmq_consumer
 
 
 @asynccontextmanager
@@ -87,6 +88,9 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting Product Service...")
     await connect_to_mongo()
+    
+    # Start RabbitMQ consumer if MESSAGING_PROVIDER=rabbitmq (dev without Dapr)
+    start_rabbitmq_consumer()
     
     logger.info(
         "Product Service started successfully",
@@ -102,6 +106,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Product Service...")
+    stop_rabbitmq_consumer()
     await close_mongo_connection()
 
 
