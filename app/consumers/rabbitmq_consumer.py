@@ -306,15 +306,9 @@ def start_rabbitmq_consumer() -> Optional[RabbitMQConsumer]:
         )
         return None
     
-    # Build RabbitMQ URL from environment variables
-    rabbitmq_host = os.environ.get('RABBITMQ_HOST', 'localhost')
-    rabbitmq_port = os.environ.get('RABBITMQ_PORT', '5672')
-    rabbitmq_user = os.environ.get('RABBITMQ_USER', 'admin')
-    rabbitmq_pass = os.environ.get('RABBITMQ_PASSWORD', 'admin123')
-    rabbitmq_vhost = os.environ.get('RABBITMQ_VHOST', '/')
+    # Use RABBITMQ_URL directly (consistent with Node.js services)
+    rabbitmq_url = os.environ.get('RABBITMQ_URL', 'amqp://localhost:5672')
     rabbitmq_exchange = os.environ.get('RABBITMQ_EXCHANGE', 'xshopai.events')
-    
-    rabbitmq_url = f"amqp://{rabbitmq_user}:{rabbitmq_pass}@{rabbitmq_host}:{rabbitmq_port}/{rabbitmq_vhost}"
     
     try:
         _consumer = RabbitMQConsumer(rabbitmq_url, rabbitmq_exchange)
