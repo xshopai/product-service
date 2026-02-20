@@ -85,18 +85,19 @@ USER productuser
 ENV TMPDIR=/tmp/uvicorn
 
 # Expose port
-EXPOSE 8001
+ENV PORT=8080
+EXPOSE 8080
 
 # Health check (using Python to avoid curl dependency)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/ready')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health/ready')" || exit 1
 
 # Production environment variables
 ENV PYTHONOPTIMIZE=1 \
     PYTHONHASHSEED=random
 
 # Start production server with gunicorn and uvicorn workers (2 workers for horizontal scaling)
-CMD ["gunicorn", "main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8001", "--timeout", "120"]
+CMD ["gunicorn", "main:app", "--worker-class", "uvicorn.workers.UvicornWorker", "--workers", "2", "--bind", "0.0.0.0:8080", "--timeout", "120"]
 
 # Labels for better image management and security scanning
 LABEL maintainer="xshopai Team"
