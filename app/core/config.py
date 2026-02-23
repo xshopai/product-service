@@ -18,6 +18,9 @@ class Config(BaseSettings):
     api_version: str = Field(default="1.0.0", env="API_VERSION")
     environment: str = Field(default="development", env="ENVIRONMENT")
     
+    # Service Invocation Mode (for consistency with other services)
+    service_invocation_mode: str = Field(default="http", env="SERVICE_INVOCATION_MODE")
+    
     # Server configuration
     port: int = Field(default=8001, env="PORT")
     host: str = Field(default="0.0.0.0", env="HOST")
