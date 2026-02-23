@@ -207,6 +207,18 @@ jobs:
           package: ${{ github.workspace }}/deploy.zip
 
       # -------------------------------------------------------------------
+      # Set startup command (FastAPI with Uvicorn workers)
+      # -------------------------------------------------------------------
+      - name: Configure startup command
+        run: |
+          echo "Setting startup command for FastAPI/Uvicorn..."
+          az webapp config set \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --startup-file "gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8080 --workers=2 --timeout=600 main:app"
+          echo "✓ Startup command configured"
+
+      # -------------------------------------------------------------------
       # Health check
       # -------------------------------------------------------------------
       - name: Verify deployment
