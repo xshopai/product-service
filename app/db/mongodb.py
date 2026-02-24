@@ -79,6 +79,26 @@ async def connect_to_mongo():
             f"Successfully connected to MongoDB database '{database}'",
             metadata={"event": "mongodb_connected", "database": database}
         )
+        
+        # Ensure indexes for Cosmos DB (required for ORDER BY queries)
+        if is_cosmos_db:
+            try:
+                products_collection = db.database["products"]
+                await products_collection.create_index(
+                    [("createdAt", -1)], 
+                    name="createdAt_desc",
+                    background=True
+                )
+                logger.info(
+                    "Database indexes synchronized for Cosmos DB",
+                    metadata={"event": "indexes_created"}
+                )
+            except Exception as index_error:
+                # Log but don't fail - indexes might already exist
+                logger.warning(
+                    f"Index synchronization warning: {index_error}",
+                    metadata={"event": "index_warning", "error": str(index_error)}
+                )
     except Exception as e:
         logger.error(
             f"Could not connect to MongoDB: {e}",
