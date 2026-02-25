@@ -72,6 +72,20 @@ jobs:
       - name: Install dev dependencies
         run: pip install -r requirements-dev.txt || true
 
+      # Pre-build dependencies using manylinux wheels for Azure App Service
+      # --only-binary :all: ensures we use portable pre-built wheels (manylinux)
+      # that target older GLIBC versions, avoiding runtime compatibility issues
+      - name: Pre-build dependencies for deployment
+        if: >
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          github.event_name == 'workflow_dispatch'
+        run: |
+          echo "Installing dependencies with manylinux binary wheels..."
+          pip install --only-binary :all: --platform manylinux2014_x86_64 --python-version 3.11 \
+            --target .python_packages/lib/site-packages \
+            -r requirements.txt
+          echo "✓ Dependencies installed: $(du -sh .python_packages | cut -f1)"
+
       - name: Run linting
         run: |
           pip install flake8 black isort
@@ -93,8 +107,10 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: build-artifacts
+          include-hidden-files: true
           path: |
             **/*
+            .python_packages/**
             !.git/**
             !.github/**
             !tests/**
@@ -188,16 +204,39 @@ jobs:
           fi
 
       # -------------------------------------------------------------------
-      # Create deployment package (App Service Oryx will handle pip install)
+      # Verify dependencies were downloaded (debug)
+      # -------------------------------------------------------------------
+      - name: Verify pre-built dependencies
+        run: |
+          echo "=== Artifact contents ==="
+          ls -la
+          if [ -d ".python_packages" ]; then
+            echo "✓ .python_packages directory found"
+            echo "  Size: $(du -sh .python_packages | cut -f1)"
+            ls .python_packages/lib/site-packages | head -20
+          else
+            echo "::error::.python_packages directory NOT found!"
+            ls -la
+            exit 1
+          fi
+
+      # -------------------------------------------------------------------
+      # Create deployment package (includes pre-built dependencies)
+      # Oryx is disabled - we use manylinux wheels pre-built in CI
       # -------------------------------------------------------------------
       - name: Create deployment package
         run: |
-          echo "Creating deployment package..."
-          zip -r ${{ github.workspace }}/deploy.zip . -x "*.git*" -x "tests/*" -x ".github/*" -x "*.log" -x ".env*" -x "__pycache__/*" -x "*.pyc" -x "venv/*" -q
+          echo "Creating deployment package with pre-built dependencies..."
+          # Explicitly include .python_packages and all app files
+          zip -r ${{ github.workspace }}/deploy.zip . \
+            -x "*.git*" -x "tests/*" -x ".github/*" -x "*.log" \
+            -x ".env*" -x "__pycache__/*" -x "*.pyc" -x "venv/*" -q
           echo "✓ Package created: $(du -h deploy.zip | cut -f1)"
+          echo "=== Verifying .python_packages in zip ==="
+          unzip -l deploy.zip | grep -c "python_packages" | xargs -I {} echo "  Found {} entries matching python_packages"
 
       # -------------------------------------------------------------------
-      # Deploy to App Service (Oryx handles Python build automatically)
+      # Deploy to App Service (dependencies pre-built, Oryx disabled)
       # -------------------------------------------------------------------
       - name: Deploy to App Service
         uses: azure/webapps-deploy@v3
@@ -208,6 +247,7 @@ jobs:
 
       # -------------------------------------------------------------------
       # Set startup command (FastAPI with Uvicorn workers)
+      # Includes --pythonpath to load pre-built dependencies
       # -------------------------------------------------------------------
       - name: Configure startup command
         run: |
@@ -215,8 +255,8 @@ jobs:
           az webapp config set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
-            --startup-file "gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8080 --workers=2 --timeout=600 main:app"
-          echo "✓ Startup command configured"
+            --startup-file "gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8080 --workers=2 --timeout=600 --pythonpath /home/site/wwwroot/.python_packages/lib/site-packages main:app"
+          echo "✓ Startup command configured with --pythonpath"
 
       # -------------------------------------------------------------------
       # Health check
