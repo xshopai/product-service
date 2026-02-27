@@ -206,3 +206,6 @@ coverage.xml
 .idea/inspectionProfiles/profiles_settings.xml
 container-app-probes.yaml
 container-app-probes.yaml
+
+# Runtime env — generated from .env.http or .env.dapr at startup, never committed
+.env
