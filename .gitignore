@@ -207,5 +207,5 @@ coverage.xml
 container-app-probes.yaml
 container-app-probes.yaml
 
-# Runtime env — generated from .env.http or .env.dapr at startup, never committed
+# Runtime env — generated from .env.example or .env.dapr at startup, never committed
 .env
