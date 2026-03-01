@@ -82,6 +82,60 @@ from app.middleware import TraceContextMiddleware
 from app.consumers import start_rabbitmq_consumer, stop_rabbitmq_consumer
 
 
+# ---------------------------------------------------------------------------
+# Consul self-registration (only when CONSUL_URL is set)
+# ---------------------------------------------------------------------------
+import requests as http_requests
+
+_consul_service_id = ''
+
+
+def _consul_register(name: str, port: int, host: str = 'localhost'):
+    """Register this service with Consul (if CONSUL_URL is set)."""
+    global _consul_service_id
+    consul_url = os.environ.get('CONSUL_URL', '')
+    if not consul_url:
+        return
+    address = 'localhost' if host == '0.0.0.0' else host
+    _consul_service_id = f'{name}-{address}-{port}'
+    registration = {
+        'ID': _consul_service_id,
+        'Name': name,
+        'Address': address,
+        'Port': port,
+        'Check': {
+            'HTTP': f'http://{address}:{port}/health',
+            'Interval': '10s',
+            'Timeout': '5s',
+            'DeregisterCriticalServiceAfter': '30s',
+        },
+    }
+    try:
+        resp = http_requests.put(
+            f'{consul_url}/v1/agent/service/register',
+            json=registration,
+            timeout=5,
+        )
+        if resp.ok:
+            _logger.info(f'[Consul] Registered {name} ({_consul_service_id}) at {address}:{port}')
+        else:
+            _logger.warning(f'[Consul] Registration failed: {resp.status_code}')
+    except Exception as e:
+        _logger.warning(f'[Consul] Registration failed (Consul unavailable): {e}')
+
+
+def _consul_deregister():
+    """Deregister this service from Consul."""
+    consul_url = os.environ.get('CONSUL_URL', '')
+    if not consul_url or not _consul_service_id:
+        return
+    try:
+        http_requests.put(f'{consul_url}/v1/agent/service/deregister/{_consul_service_id}', timeout=5)
+        _logger.info(f'[Consul] Deregistered {_consul_service_id}')
+    except Exception:
+        pass  # Best-effort
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
@@ -91,6 +145,9 @@ async def lifespan(app: FastAPI):
     
     # Start RabbitMQ consumer if MESSAGING_PROVIDER=rabbitmq (dev without Dapr)
     start_rabbitmq_consumer()
+
+    # Register with Consul (if CONSUL_URL is set)
+    _consul_register('product-service', config.port, config.host)
     
     logger.info(
         "Product Service started successfully",
@@ -106,6 +163,7 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down Product Service...")
+    _consul_deregister()
     stop_rabbitmq_consumer()
     await close_mongo_connection()
 
