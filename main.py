@@ -94,6 +94,7 @@ def _consul_register(name: str, port: int, host: str = 'localhost'):
     """Register this service with Consul (if CONSUL_URL is set)."""
     global _consul_service_id
     consul_url = os.environ.get('CONSUL_URL', '')
+    consul_health_host = os.environ.get('CONSUL_HEALTH_HOST', 'host.docker.internal')
     if not consul_url:
         return
     address = 'localhost' if host == '0.0.0.0' else host
@@ -104,7 +105,7 @@ def _consul_register(name: str, port: int, host: str = 'localhost'):
         'Address': address,
         'Port': port,
         'Check': {
-            'HTTP': f'http://{address}:{port}/health/live',
+            'HTTP': f'http://{consul_health_host}:{port}/health/live',
             'Interval': '10s',
             'Timeout': '5s',
             'DeregisterCriticalServiceAfter': '30s',
